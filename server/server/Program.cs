@@ -71,7 +71,6 @@ using (var scope = app.Services.CreateScope())
         dbContext.Users.AddRange(users);
         await dbContext.SaveChangesAsync();
 
-        // Assign users to groups
         var group1 = await dbContext.Groups.FirstAsync(g => g.Title == "Family Gathering");
         var group2 = await dbContext.Groups.FirstAsync(g => g.Title == "Work Team");
         var alice = await dbContext.Users.FirstAsync(u => u.Name == "Alice");

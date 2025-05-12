@@ -72,6 +72,28 @@ function GroupDetails() {
         }
     };
 
+    const handleRemoveUser = async (userId: number) => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${userId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) {
+                throw new Error('Failed to remove user from group');
+            }
+            const updatedGroupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
+            const updatedGroup: Group = await updatedGroupResponse.json();
+            setGroup(updatedGroup);
+            setSuccess('User removed successfully');
+            setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+            setError('Error removing user: ' + (err as Error).message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleBack = () => {
         navigate('/groups');
     };
@@ -106,6 +128,14 @@ function GroupDetails() {
                                 group.users.map((user) => (
                                     <ListItem key={user.id}>
                                         <ListItemText primary={user.name} />
+                                        <Button
+                                            variant="outlined"
+                                            color="error"
+                                            onClick={() => handleRemoveUser(user.id)}
+                                            disabled={loading}
+                                        >
+                                            Remove
+                                        </Button>
                                     </ListItem>
                                 ))
                             ) : (

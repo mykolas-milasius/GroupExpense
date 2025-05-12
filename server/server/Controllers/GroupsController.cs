@@ -105,4 +105,21 @@ public class GroupsController : ControllerBase
         }
         return NoContent();
     }
+
+    /// <summary>
+    /// Removes a user from a group.
+    /// </summary>
+    /// <param name="groupId"></param>
+    /// <param name="userId"></param>
+    /// <returns>No content if successful</returns>
+    [HttpDelete("{groupId}/users/{userId}")]
+    public async Task<IActionResult> RemoveUserFromGroup(int groupId, int userId)
+    {
+        var success = await _groupsService.RemoveUserFromGroupAsync(groupId, userId);
+        if (!success)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
 }

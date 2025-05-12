@@ -92,4 +92,21 @@ public class GroupsService : IGroupsService
 
         return true;
     }
+
+    public async Task<bool> RemoveUserFromGroupAsync(int groupId, int userId)
+    {
+        var group = await _context.Groups
+            .Include(g => g.Users)
+            .FirstOrDefaultAsync(g => g.Id == groupId);
+        var user = await _context.Users.FindAsync(userId);
+
+        if (group == null || user == null || !group.Users.Contains(user))
+        {
+            return false;
+        }
+
+        group.Users.Remove(user);
+        await _context.SaveChangesAsync();
+        return true;
+    }
 }
