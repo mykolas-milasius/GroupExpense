@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Group> Groups { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<Transaction> Transactions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,5 +29,27 @@ public class AppDbContext : DbContext
                     j.Property<int>("UsersId");
                     j.HasKey("GroupsId", "UsersId");
                 });
+        
+    modelBuilder.Entity<Transaction>()
+        .HasOne(t => t.User)
+        .WithMany()
+        .HasForeignKey(t => t.UserId)
+        .OnDelete(DeleteBehavior.Restrict)
+        .IsRequired(false);
+
+    modelBuilder.Entity<Transaction>()
+        .HasOne(t => t.Group)
+        .WithMany()
+        .HasForeignKey(t => t.GroupId)
+        .OnDelete(DeleteBehavior.Restrict)
+        .IsRequired(false);
+
+    modelBuilder.Entity<Transaction>()
+        .Property(t => t.UserId)
+        .IsRequired();
+
+    modelBuilder.Entity<Transaction>()
+        .Property(t => t.GroupId)
+        .IsRequired();
     }
 }

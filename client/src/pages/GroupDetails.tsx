@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Button, Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem, List, ListItem, ListItemText } from '@mui/material';
 import { fetchUsers } from '../services/UserService';
+import { fetchTransactionsByGroup} from '../services/TransactionService';
 import type { User } from '../services/UserService';
+import type { Transaction } from '../services/TransactionService';
 
 interface Group {
     id: number;
@@ -15,6 +17,7 @@ function GroupDetails() {
     const navigate = useNavigate();
     const [group, setGroup] = useState<Group | null>(null);
     const [users, setUsers] = useState<User[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,6 +36,9 @@ function GroupDetails() {
 
                 const usersData = await fetchUsers();
                 setUsers(usersData);
+
+                const transactionsData = await fetchTransactionsByGroup(parseInt(id!));
+                setTransactions(transactionsData);
             } catch (err) {
                 setError('Error fetching data: ' + (err as Error).message);
             } finally {
@@ -94,6 +100,10 @@ function GroupDetails() {
         }
     };
 
+    const handleNewTransaction = () => {
+        navigate(`/groups/${id}/transactions/new`);
+    };
+
     const handleBack = () => {
         navigate('/groups');
     };
@@ -109,7 +119,7 @@ function GroupDetails() {
                         <CircularProgress />
                     </Box>
                 ) : error ? (
-                    <Alert severity="error" sx={{ mt: 2 }}>
+                    <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
                         {error}
                     </Alert>
                 ) : group ? (
@@ -126,7 +136,7 @@ function GroupDetails() {
                         <List>
                             {group.users.length > 0 ? (
                                 group.users.map((user) => (
-                                    <ListItem key={user.id}>
+                                    <ListItem key={user.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <ListItemText primary={user.name} />
                                         <Button
                                             variant="outlined"
@@ -144,13 +154,36 @@ function GroupDetails() {
                                 </ListItem>
                             )}
                         </List>
-                        <Box sx={{ mt: 2, mb: 2 }}>
-                            <FormControl fullWidth sx={{ mb: 2 }}>
+                        <Typography variant="h6" sx={{ mb: 1 }}>
+                            Transactions:
+                        </Typography>
+                        <List>
+                            {transactions.length > 0 ? (
+                                transactions.map((transaction) => (
+                                    <ListItem key={transaction.id}>
+                                        <ListItemText
+                                            primary={`${transaction.title}: ${transaction.amount.toFixed(2)} by ${transaction.user?.name || 'Unknown'}`}
+                                            secondary={new Date(transaction.date).toLocaleDateString()}
+                                        />
+                                    </ListItem>
+                                ))
+                            ) : (
+                                <ListItem>
+                                    <ListItemText primary="No transactions" />
+                                </ListItem>
+                            )}
+                        </List>
+                        <Box sx={{ mt: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 1 }}>
+                                Add User to Group
+                            </Typography>
+                            <FormControl fullWidth>
                                 <InputLabel>Add User</InputLabel>
                                 <Select
                                     value={selectedUserId}
                                     onChange={(e) => setSelectedUserId(e.target.value as number)}
                                     label="Add User"
+                                    disabled={loading}
                                 >
                                     <MenuItem value="">
                                         <em>Select a user</em>
@@ -168,13 +201,19 @@ function GroupDetails() {
                                 variant="contained"
                                 onClick={handleAddUser}
                                 disabled={loading || !selectedUserId}
-                                sx={{ mb: 2 }}
                             >
                                 {loading ? 'Adding...' : 'Add User'}
                             </Button>
+                            <Button
+                                variant="contained"
+                                onClick={handleNewTransaction}
+                                disabled={loading}
+                            >
+                                New Transaction
+                            </Button>
                         </Box>
                         {success && (
-                            <Alert severity="success" sx={{ mt: 2 }}>
+                            <Alert severity="success" sx={{ mt: 2, mb: 2 }}>
                                 {success}
                             </Alert>
                         )}
