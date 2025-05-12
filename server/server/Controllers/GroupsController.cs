@@ -88,4 +88,21 @@ public class GroupsController : ControllerBase
         }
         return NoContent();
     }
+
+    /// <summary>
+    /// Adds a user to a group.
+    /// </summary>
+    /// <param name="groupId">The ID of the group.</param>
+    /// <param name="userId">The ID of the user to add.</param>
+    /// <returns>No content if successful.</returns>
+    [HttpPost("{groupId}/users/{userId}")]
+    public async Task<IActionResult> AddUserToGroup(int groupId, int userId)
+    {
+        var success = await _groupsService.AddUserToGroupAsync(groupId, userId);
+        if (!success)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
 }

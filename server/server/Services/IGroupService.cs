@@ -11,4 +11,5 @@ public interface IGroupsService
     Task<Group> CreateGroupAsync(Group group);
     Task<bool> UpdateGroupAsync(int id, Group group);
     Task<bool> DeleteGroupAsync(int id);
+    Task<bool> AddUserToGroupAsync(int groupId, int userId);
 }

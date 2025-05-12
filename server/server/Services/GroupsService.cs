@@ -17,12 +17,16 @@ public class GroupsService : IGroupsService
 
     public async Task<IEnumerable<Group>> GetGroupsAsync()
     {
-        return await _context.Groups.ToListAsync();
+        return await _context.Groups
+            .Include(g => g.Users)
+            .ToListAsync();
     }
 
     public async Task<Group?> GetGroupAsync(int id)
     {
-        return await _context.Groups.FindAsync(id);
+        return await _context.Groups
+            .Include(g => g.Users)
+            .FirstOrDefaultAsync(g => g.Id == id);
     }
 
     public async Task<Group> CreateGroupAsync(Group group)
@@ -65,6 +69,27 @@ public class GroupsService : IGroupsService
 
         _context.Groups.Remove(group);
         await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AddUserToGroupAsync(int groupId, int userId)
+    {
+        var group = await _context.Groups
+            .Include(g => g.Users)
+            .FirstOrDefaultAsync(g => g.Id == groupId);
+        var user = await _context.Users.FindAsync(userId);
+
+        if (group == null || user == null)
+        {
+            return false;
+        }
+
+        if (!group.Users.Contains(user))
+        {
+            group.Users.Add(user);
+            await _context.SaveChangesAsync();
+        }
+
         return true;
     }
 }

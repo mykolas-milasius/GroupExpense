@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Services;
+using server.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseInMemoryDatabase("GroupsDb"));
 
 builder.Services.AddScoped<IGroupsService, GroupsService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddCors(options =>
 {
@@ -44,12 +46,42 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Groups.AddRange(
-        new server.Models.Group { Name = "Group 1", Description = "First group" },
-        new server.Models.Group { Name = "Group 2", Description = "Second group" },
-        new server.Models.Group { Name = "Group 3", Description = "Third group" }
-    );
-    dbContext.SaveChanges();
+    
+    if (!dbContext.Groups.Any())
+    {
+        var groups = new[]
+        {
+            new Group { Title = "Family Gathering"},
+            new Group { Title = "Work Team"},
+            new Group { Title = "Friends Trip"},
+            new Group { Title = "Book Club"}
+        };
+        dbContext.Groups.AddRange(groups);
+        await dbContext.SaveChangesAsync();
+    }
+
+    if (!dbContext.Users.Any())
+    {
+        var users = new[]
+        {
+            new User { Name = "Alice" },
+            new User { Name = "Bob" },
+            new User { Name = "Charlie" }
+        };
+        dbContext.Users.AddRange(users);
+        await dbContext.SaveChangesAsync();
+
+        // Assign users to groups
+        var group1 = await dbContext.Groups.FirstAsync(g => g.Title == "Family Gathering");
+        var group2 = await dbContext.Groups.FirstAsync(g => g.Title == "Work Team");
+        var alice = await dbContext.Users.FirstAsync(u => u.Name == "Alice");
+        var bob = await dbContext.Users.FirstAsync(u => u.Name == "Bob");
+
+        group1.Users.Add(alice);
+        group1.Users.Add(bob);
+        group2.Users.Add(bob);
+        await dbContext.SaveChangesAsync();
+    }
 }
 
 app.Run();
