@@ -3,7 +3,6 @@ import Navbar from "./components/Navbar.tsx";
 import Groups from "./pages/Groups.tsx";
 
 function App() {
-
     const pages = ['Groups'];
 
     return (
@@ -17,4 +16,4 @@ function App() {
     )
 }
 
-export default App
+export default App;
