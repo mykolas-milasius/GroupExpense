@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Models;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace server.Services;
@@ -9,6 +10,7 @@ namespace server.Services;
 public class GroupsService : IGroupsService
 {
     private readonly AppDbContext _context;
+    private const int FixedUserId = 1; // Fiksuotas vartotojo ID
 
     public GroupsService(AppDbContext context)
     {
@@ -22,6 +24,45 @@ public class GroupsService : IGroupsService
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<GroupDto>> GetGroupsWithBalanceAsync(int userId = FixedUserId)
+    {
+        var groups = await _context.Groups
+            .Include(g => g.Users)
+            .Where(g => g.Users.Any(u => u.Id == userId))
+            .ToListAsync();
+
+        var groupDtos = new List<GroupDto>();
+        foreach (var group in groups)
+        {
+            var transactions = await _context.Transactions
+                .Where(t => t.GroupId == group.Id)
+                .ToListAsync();
+
+            decimal balance = 0;
+            foreach (var transaction in transactions)
+            {
+                if (transaction.UserId == userId)
+                {
+                    balance += transaction.Amount;
+                }
+                else
+                {
+                    int memberCount = group.Users.Count;
+                    balance -= transaction.Amount / memberCount;
+                }
+            }
+
+            groupDtos.Add(new GroupDto
+            {
+                Id = group.Id,
+                Title = group.Title,
+                Balance = balance
+            });
+        }
+
+        return groupDtos;
+    }
+
     public async Task<Group?> GetGroupAsync(int id)
     {
         return await _context.Groups
@@ -31,6 +72,23 @@ public class GroupsService : IGroupsService
 
     public async Task<Group> CreateGroupAsync(Group group)
     {
+        _context.Groups.Add(group);
+        await _context.SaveChangesAsync();
+        return group;
+    }
+
+    public async Task<Group> CreateGroupAsync(CreateGroupDto createGroupDto)
+    {
+        var user = await _context.Users.FindAsync(FixedUserId);
+        if (user == null)
+            throw new ArgumentException("Fiksuotas vartotojas nerastas");
+
+        var group = new Group
+        {
+            Title = createGroupDto.Title,
+            Users = new List<User> { user }
+        };
+
         _context.Groups.Add(group);
         await _context.SaveChangesAsync();
         return group;

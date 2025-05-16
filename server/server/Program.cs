@@ -65,6 +65,7 @@ using (var scope = app.Services.CreateScope())
     {
         var users = new[]
         {
+            new User { Name = "Michael" },
             new User { Name = "Alice" },
             new User { Name = "Bob" },
             new User { Name = "Charlie" }
@@ -76,10 +77,12 @@ using (var scope = app.Services.CreateScope())
         var group2 = await dbContext.Groups.FirstAsync(g => g.Title == "Work Team");
         var alice = await dbContext.Users.FirstAsync(u => u.Name == "Alice");
         var bob = await dbContext.Users.FirstAsync(u => u.Name == "Bob");
-
+        var michael = await dbContext.Users.FirstAsync(u => u.Name == "Michael");
         group1.Users.Add(alice);
         group1.Users.Add(bob);
         group2.Users.Add(bob);
+        group1.Users.Add(michael);
+        group2.Users.Add(michael);
         await dbContext.SaveChangesAsync();
     }
 

@@ -10,6 +10,7 @@ namespace server.Controllers;
 [ApiController]
 public class GroupsController : ControllerBase
 {
+    private const int FixedUserId = 1;
     private readonly IGroupsService _groupsService;
 
     public GroupsController(IGroupsService groupsService)
@@ -18,13 +19,13 @@ public class GroupsController : ControllerBase
     }
 
     /// <summary>
-    /// Gets all groups.
+    /// Gets all groups for the default user with their balance.
     /// </summary>
-    /// <returns>A list of groups.</returns>
+    /// <returns>A list of groups with balances.</returns>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Group>>> GetGroups()
+    public async Task<ActionResult<IEnumerable<GroupDto>>> GetGroups()
     {
-        var groups = await _groupsService.GetGroupsAsync();
+        var groups = await _groupsService.GetGroupsWithBalanceAsync(FixedUserId);
         return Ok(groups);
     }
 
@@ -47,79 +48,15 @@ public class GroupsController : ControllerBase
     /// <summary>
     /// Creates a new group.
     /// </summary>
-    /// <param name="group">The group to create.</param>
+    /// <param name="createGroupDto">The group data to create.</param>
     /// <returns>The created group.</returns>
     [HttpPost]
-    public async Task<ActionResult<Group>> PostGroup(Group group)
+    public async Task<ActionResult<Group>> PostGroup([FromBody] CreateGroupDto createGroupDto)
     {
-        var createdGroup = await _groupsService.CreateGroupAsync(group);
+        if (string.IsNullOrWhiteSpace(createGroupDto.Title))
+            return BadRequest("Grupės pavadinimas yra privalomas");
+
+        var createdGroup = await _groupsService.CreateGroupAsync(createGroupDto);
         return CreatedAtAction(nameof(GetGroup), new { id = createdGroup.Id }, createdGroup);
-    }
-
-    /// <summary>
-    /// Updates an existing group.
-    /// </summary>
-    /// <param name="id">The ID of the group to update.</param>
-    /// <param name="group">The updated group data.</param>
-    /// <returns>No content if successful.</returns>
-    [HttpPut("{id}")]
-    public async Task<IActionResult> PutGroup(int id, Group group)
-    {
-        var success = await _groupsService.UpdateGroupAsync(id, group);
-        if (!success)
-        {
-            return NotFound();
-        }
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Deletes a group by ID.
-    /// </summary>
-    /// <param name="id">The ID of the group to delete.</param>
-    /// <returns>No content if successful.</returns>
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteGroup(int id)
-    {
-        var success = await _groupsService.DeleteGroupAsync(id);
-        if (!success)
-        {
-            return NotFound();
-        }
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Adds a user to a group.
-    /// </summary>
-    /// <param name="groupId">The ID of the group.</param>
-    /// <param name="userId">The ID of the user to add.</param>
-    /// <returns>No content if successful.</returns>
-    [HttpPost("{groupId}/users/{userId}")]
-    public async Task<IActionResult> AddUserToGroup(int groupId, int userId)
-    {
-        var success = await _groupsService.AddUserToGroupAsync(groupId, userId);
-        if (!success)
-        {
-            return NotFound();
-        }
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Removes a user from a group.
-    /// </summary>
-    /// <param name="groupId"></param>
-    /// <param name="userId"></param>
-    /// <returns>No content if successful</returns>
-    [HttpDelete("{groupId}/users/{userId}")]
-    public async Task<IActionResult> RemoveUserFromGroup(int groupId, int userId)
-    {
-        var success = await _groupsService.RemoveUserFromGroupAsync(groupId, userId);
-        if (!success)
-        {
-            return NotFound();
-        }
-        return NoContent();
     }
 }

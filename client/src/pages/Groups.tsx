@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Alert } from '@mui/material';
+import { Container, Typography, Box, Button, Table, TableContainer, TableHead, TableRow, TableCell, TableBody, Paper, TextField, Alert } from '@mui/material';
 
 interface Group {
     id: number;
     title: string;
+    balance: number;
 }
 
 function Groups() {
@@ -20,12 +21,12 @@ function Groups() {
                 setLoading(true);
                 const response = await fetch('http://localhost:5253/api/Groups');
                 if (!response.ok) {
-                    throw new Error('Failed to fetch groups');
+                    throw new Error('Nepavyko gauti grupių');
                 }
                 const data: Group[] = await response.json();
                 setGroups(data);
             } catch (err) {
-                setError('Error fetching groups: ' + (err as Error).message);
+                setError('Klaida gaunant grupes: ' + (err as Error).message);
             } finally {
                 setLoading(false);
             }
@@ -36,7 +37,7 @@ function Groups() {
 
     const handleCreateGroup = async () => {
         if (!newGroupTitle.trim()) {
-            setError('Group title is required');
+            setError('Grupės pavadinimas yra privalomas');
             return;
         }
 
@@ -46,16 +47,16 @@ function Groups() {
             const response = await fetch('http://localhost:5253/api/Groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newGroupTitle, description: '' })
+                body: JSON.stringify({ title: newGroupTitle })
             });
             if (!response.ok) {
-                throw new Error('Failed to create group');
+                throw new Error('Nepavyko sukurti grupės');
             }
             const createdGroup: Group = await response.json();
-            setGroups([...groups, createdGroup]);
+            setGroups([...groups, { id: createdGroup.id, title: createdGroup.title, balance: 0 }]);
             setNewGroupTitle('');
         } catch (err) {
-            setError('Error creating group: ' + (err as Error).message);
+            setError('Klaida kuriant grupę: ' + (err as Error).message);
         } finally {
             setLoading(false);
         }
@@ -73,14 +74,14 @@ function Groups() {
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
             <Box>
                 <Typography variant="h4" component="h1" gutterBottom>
-                    Groups
+                    Grupės
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 2 }}>
-                    Welcome to the group page! This is where you can create a new group, see a list of groups and how much you owe or are owed.
+                    Sveiki atvykę į grupių puslapį! Čia matote savo grupes ir balansą.
                 </Typography>
                 <Box sx={{ mb: 4 }}>
                     <TextField
-                        label="Group Title"
+                        label="Grupės pavadinimas"
                         name="title"
                         value={newGroupTitle}
                         onChange={handleInputChange}
@@ -93,7 +94,7 @@ function Groups() {
                         onClick={handleCreateGroup}
                         disabled={loading}
                     >
-                        {loading ? 'Creating...' : 'Create a new group'}
+                        {loading ? 'Kuriama...' : 'Sukurti naują grupę'}
                     </Button>
                     {error && (
                         <Alert severity="error" sx={{ mt: 2 }}>
@@ -106,15 +107,16 @@ function Groups() {
                         <TableHead>
                             <TableRow>
                                 <TableCell>ID</TableCell>
-                                <TableCell>Title</TableCell>
-                                <TableCell>Actions</TableCell>
+                                <TableCell>Pavadinimas</TableCell>
+                                <TableCell>Balansas</TableCell>
+                                <TableCell>Veiksmai</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={3} align="center">
-                                        Loading...
+                                    <TableCell colSpan={4} align="center">
+                                        Kraunama...
                                     </TableCell>
                                 </TableRow>
                             ) : groups.length > 0 ? (
@@ -123,19 +125,34 @@ function Groups() {
                                         <TableCell>{group.id}</TableCell>
                                         <TableCell>{group.title}</TableCell>
                                         <TableCell>
+                                            {group.balance > 0 ? (
+                                                <Typography color="green">
+                                                    Jums skolingi: €{group.balance.toFixed(2)}
+                                                </Typography>
+                                            ) : group.balance < 0 ? (
+                                                <Typography color="red">
+                                                    Jūs skolingi: €{Math.abs(group.balance).toFixed(2)}
+                                                </Typography>
+                                            ) : (
+                                                <Typography>
+                                                    Balansas: €0.00
+                                                </Typography>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
                                             <Button
                                                 variant="outlined"
                                                 onClick={() => handleViewDetails(group.id)}
                                             >
-                                                View Details
+                                                Peržiūrėti detales
                                             </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={3} align="center">
-                                        No groups found
+                                    <TableCell colSpan={4} align="center">
+                                        Grupių nerasta
                                     </TableCell>
                                 </TableRow>
                             )}
