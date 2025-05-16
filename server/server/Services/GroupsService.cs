@@ -63,11 +63,29 @@ public class GroupsService : IGroupsService
         return groupDtos;
     }
 
-    public async Task<Group?> GetGroupAsync(int id)
+    public async Task<GroupDto?> GetGroupAsync(int id)
     {
-        return await _context.Groups
+        var group = await _context.Groups
             .Include(g => g.Users)
             .FirstOrDefaultAsync(g => g.Id == id);
+        if (group == null) return null;
+
+        var transactions = await _context.Transactions
+            .Where(t => t.GroupId == id)
+            .ToListAsync();
+        decimal totalExpenses = transactions.Sum(t => t.Amount);
+        int memberCount = group.Users.Count;
+        decimal userShare = memberCount > 0 ? totalExpenses / memberCount : 0;
+        decimal totalPaidByUser = transactions.Where(t => t.UserId == 1).Sum(t => t.Amount); // Fiksuotas UserId = 1
+        decimal balance = totalPaidByUser - userShare;
+
+        return new GroupDto
+        {
+            Id = group.Id,
+            Title = group.Title,
+            Balance = balance,
+            Users = group.Users.Select(u => new UserDto { Id = u.Id, Name = u.Name }).ToList()
+        };
     }
 
     public async Task<Group> CreateGroupAsync(Group group)

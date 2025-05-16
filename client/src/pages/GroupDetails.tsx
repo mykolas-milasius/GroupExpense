@@ -1,24 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem, List, ListItem, ListItemText } from '@mui/material';
-import { fetchUsers } from '../services/UserService';
-import { fetchTransactionsByGroup} from '../services/TransactionService';
-import type { User } from '../services/UserService';
+import { Container, Typography, Box, Button, Alert, CircularProgress, List, ListItem, ListItemText } from '@mui/material';
+import { fetchTransactionsByGroup } from '../services/TransactionService';
 import type { Transaction } from '../services/TransactionService';
 
 interface Group {
     id: number;
     title: string;
-    users: User[];
+    balance: number;
+    users: { id: number; name: string }[];
 }
 
 function GroupDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [group, setGroup] = useState<Group | null>(null);
-    const [users, setUsers] = useState<User[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [selectedUserId, setSelectedUserId] = useState<number | ''>('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -34,9 +31,6 @@ function GroupDetails() {
                 const groupData: Group = await groupResponse.json();
                 setGroup(groupData);
 
-                const usersData = await fetchUsers();
-                setUsers(usersData);
-
                 const transactionsData = await fetchTransactionsByGroup(parseInt(id!));
                 setTransactions(transactionsData);
             } catch (err) {
@@ -50,15 +44,18 @@ function GroupDetails() {
     }, [id]);
 
     const handleAddUser = async () => {
-        if (!selectedUserId) {
-            setError('Please select a user');
+        if (!group) return;
+
+        const fixedUserId = 1;
+        if (group.users.some((u) => u.id === fixedUserId)) {
+            setError('You are already a member of this group');
             return;
         }
 
         try {
             setLoading(true);
             setError(null);
-            const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${selectedUserId}`, {
+            const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${fixedUserId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -68,7 +65,6 @@ function GroupDetails() {
             const updatedGroupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
             const updatedGroup: Group = await updatedGroupResponse.json();
             setGroup(updatedGroup);
-            setSelectedUserId('');
             setSuccess('User added successfully');
             setTimeout(() => setSuccess(null), 3000);
         } catch (err) {
@@ -127,8 +123,24 @@ function GroupDetails() {
                         <Typography variant="h6" sx={{ mb: 1 }}>
                             ID: {group.id}
                         </Typography>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
+                        <Typography variant="h6" sx={{ mb: 1 }}>
                             Title: {group.title}
+                        </Typography>
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                            Balance:
+                            {group.balance > 0 ? (
+                                <Typography component="span" color="green">
+                                    {' '}Owed to you: €{group.balance.toFixed(2)}
+                                </Typography>
+                            ) : group.balance < 0 ? (
+                                <Typography component="span" color="red">
+                                    {' '}You owe: €{Math.abs(group.balance).toFixed(2)}
+                                </Typography>
+                            ) : (
+                                <Typography component="span">
+                                    {' '}Balance: €0.00
+                                </Typography>
+                            )}
                         </Typography>
                         <Typography variant="h6" sx={{ mb: 1 }}>
                             Members:
@@ -142,7 +154,7 @@ function GroupDetails() {
                                             variant="outlined"
                                             color="error"
                                             onClick={() => handleRemoveUser(user.id)}
-                                            disabled={loading}
+                                            disabled={loading || user.id === 1} // Prevent removing fixed user
                                         >
                                             Remove
                                         </Button>
@@ -162,7 +174,7 @@ function GroupDetails() {
                                 transactions.map((transaction) => (
                                     <ListItem key={transaction.id}>
                                         <ListItemText
-                                            primary={`${transaction.title}: ${transaction.amount.toFixed(2)} by ${transaction.user?.name || 'Unknown'}`}
+                                            primary={`${transaction.title}: €${transaction.amount.toFixed(2)} by ${transaction.user?.name || 'Unknown'}`}
                                             secondary={new Date(transaction.date).toLocaleDateString()}
                                         />
                                     </ListItem>
@@ -174,35 +186,12 @@ function GroupDetails() {
                             )}
                         </List>
                         <Box sx={{ mt: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <Typography variant="h6" sx={{ mb: 1 }}>
-                                Add User to Group
-                            </Typography>
-                            <FormControl fullWidth>
-                                <InputLabel>Add User</InputLabel>
-                                <Select
-                                    value={selectedUserId}
-                                    onChange={(e) => setSelectedUserId(e.target.value as number)}
-                                    label="Add User"
-                                    disabled={loading}
-                                >
-                                    <MenuItem value="">
-                                        <em>Select a user</em>
-                                    </MenuItem>
-                                    {users
-                                        .filter((user) => !group.users.some((u) => u.id === user.id))
-                                        .map((user) => (
-                                            <MenuItem key={user.id} value={user.id}>
-                                                {user.name}
-                                            </MenuItem>
-                                        ))}
-                                </Select>
-                            </FormControl>
                             <Button
                                 variant="contained"
                                 onClick={handleAddUser}
-                                disabled={loading || !selectedUserId}
+                                disabled={loading || (group && group.users.some((u) => u.id === 1))}
                             >
-                                {loading ? 'Adding...' : 'Add User'}
+                                {loading ? 'Adding...' : 'Add Yourself to Group'}
                             </Button>
                             <Button
                                 variant="contained"

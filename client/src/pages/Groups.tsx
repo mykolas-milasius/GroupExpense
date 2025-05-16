@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Button, Table, TableContainer, TableHead, TableRow, TableCell, TableBody, Paper, TextField, Alert } from '@mui/material';
 
-// Interface for group data
 interface Group {
     id: number;
     title: string;
@@ -10,14 +9,12 @@ interface Group {
 }
 
 function Groups() {
-    // State for storing groups, new group title, loading status, and errors
     const [groups, setGroups] = useState<Group[]>([]);
     const [newGroupTitle, setNewGroupTitle] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    // Fetch groups on component mount
     useEffect(() => {
         const fetchGroups = async () => {
             try {
@@ -38,7 +35,6 @@ function Groups() {
         fetchGroups();
     }, []);
 
-    // Handle group creation
     const handleCreateGroup = async () => {
         if (!newGroupTitle.trim()) {
             setError('Group title is required');
@@ -66,12 +62,10 @@ function Groups() {
         }
     };
 
-    // Handle input change for group title
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setNewGroupTitle(e.target.value);
     };
 
-    // Navigate to group details page
     const handleViewDetails = (id: number) => {
         navigate(`/groups/${id}`);
     };
