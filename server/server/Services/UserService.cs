@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Models;
@@ -18,5 +19,14 @@ public class UserService : IUserService
     public async Task<IEnumerable<User>> GetUsersAsync()
     {
         return await _context.Users.ToListAsync();
+    }
+
+    public async Task<IEnumerable<User>> GetAvailableUsersAsync(int groupId)
+    {
+        return await _context.Users
+            .Where(u => !u.GroupMembers.Any(g => g.Id == groupId))
+            .AsNoTracking()
+            //.Select(u => new {u.Id, u.Name})
+            .ToListAsync();
     }
 }

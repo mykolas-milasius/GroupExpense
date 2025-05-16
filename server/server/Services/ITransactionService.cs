@@ -1,3 +1,4 @@
+using server.Dto;
 using server.Models;
 using System.Threading.Tasks;
 
@@ -5,6 +6,6 @@ namespace server.Services;
 
 public interface ITransactionService
 {
-    Task<Transaction> CreateTransactionAsync(Transaction transaction);
+    Task<Transaction> CreateTransactionAsync(TransactionDto transactionDto);
     Task<IEnumerable<Transaction>> GetTransactionsByGroupAsync(int groupId);
 }

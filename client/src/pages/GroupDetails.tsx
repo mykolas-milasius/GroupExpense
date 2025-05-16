@@ -21,21 +21,14 @@ import {
     MenuItem,
 } from '@mui/material';
 import { fetchTransactionsByGroup } from '../services/TransactionService';
-import type { Transaction } from '../services/TransactionService';
-
-
-interface Group {
-    id: number;
-    title: string;
-    balance: number;
-    users: { id: number; name: string }[];
-}
+import type { TransactionDto } from '../models/TransactionModel.ts';
+import type {GroupDto} from "../models/GroupModels.ts";
 
 function GroupDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [group, setGroup] = useState<Group | null>(null);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [group, setGroup] = useState<GroupDto | null>(null);
+    const [transactions, setTransactions] = useState<TransactionDto[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]); // Visi sistemos naudotojai
     const [selectedUserId, setSelectedUserId] = useState<number | ''>(''); // Pasirinktas naudotojas pridėjimui
     const [loading, setLoading] = useState(true);
@@ -50,20 +43,18 @@ function GroupDetails() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // Gauname grupės informaciją
+
                 const groupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
                 if (!groupResponse.ok) {
                     throw new Error('Failed to fetch group');
                 }
-                const groupData: Group = await groupResponse.json();
+                const groupData: GroupDto = await groupResponse.json();
                 setGroup(groupData);
 
-                // Gauname transakcijas
                 const transactionsData = await fetchTransactionsByGroup(parseInt(id!));
                 setTransactions(transactionsData);
 
-                // Gauname visus naudotojus
-                const usersData = await fetchUsers();
+                const usersData = await fetchUsers(groupData!.id);
                 setAllUsers(usersData);
             } catch (err) {
                 setError('Error fetching data: ' + (err as Error).message);
@@ -88,7 +79,7 @@ function GroupDetails() {
     const handleAddUser = async () => {
         if (!group || !selectedUserId) return;
 
-        if (group.users.some((u) => u.id === selectedUserId)) {
+        if (group.groupMembers?.some((u) => u.id === selectedUserId)) {
             setError('This user is already a member of the group');
             return;
         }
@@ -104,8 +95,10 @@ function GroupDetails() {
                 throw new Error('Failed to add user to group');
             }
             const updatedGroupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
-            const updatedGroup: Group = await updatedGroupResponse.json();
+            const updatedGroup: GroupDto = await updatedGroupResponse.json();
             setGroup(updatedGroup);
+            const result = await fetchUsers(group.id);
+            setAllUsers(result);
             setSuccess('User added successfully');
             setTimeout(() => setSuccess(null), 3000);
             handleCloseAddUserModal();
@@ -127,7 +120,7 @@ function GroupDetails() {
                 throw new Error('Failed to remove user from group');
             }
             const updatedGroupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
-            const updatedGroup: Group = await updatedGroupResponse.json();
+            const updatedGroup: GroupDto = await updatedGroupResponse.json();
             setGroup(updatedGroup);
             setSuccess('User removed successfully');
             setTimeout(() => setSuccess(null), 3000);
@@ -146,60 +139,14 @@ function GroupDetails() {
         navigate('/groups');
     };
 
-    const handleOpenSettleModal = () => {
-        setOpenSettleModal(true);
-        setSettleAmount('');
-    };
-
     const handleCloseSettleModal = () => {
         setOpenSettleModal(false);
         setSettleAmount('');
     };
 
-    const handleSettleDebt = async () => {
-        if (!group) return;
-
-        const amount = parseFloat(settleAmount);
-        if (isNaN(amount) || amount <= 0) {
-            setError('Please enter a valid amount greater than zero');
-            return;
-        }
-        if (amount > Math.abs(group.balance)) {
-            setError(`Amount cannot exceed your debt of €${Math.abs(group.balance).toFixed(2)}`);
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    settleType: 'Dynamic',
-                    percentages: {},
-                    amounts: { [fixedUserId]: amount },
-                }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to settle debt');
-            }
-            const updatedGroupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
-            const updatedGroup: Group = await updatedGroupResponse.json();
-            setGroup(updatedGroup);
-            setSuccess('Debt settled successfully');
-            setTimeout(() => setSuccess(null), 3000);
-            handleCloseSettleModal();
-        } catch (err) {
-            setError('Error settling debt: ' + (err as Error).message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Filtruojame naudotojus, kurie dar nėra grupėje
-    const availableUsers = allUsers.filter((user) => !group?.users.some((u) => u.id === user.id));
+    const availableUsers = allUsers.filter(
+        (user) => !group?.groupMembers?.some((member) => member.id === user.id)
+    );
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -223,37 +170,13 @@ function GroupDetails() {
                         <Typography variant="h6" sx={{ mb: 1 }}>
                             Title: {group.title}
                         </Typography>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                            Balance:
-                            {group.balance > 0 ? (
-                                <Typography component="span" color="green">
-                                    {' '}
-                                    Owed to you: €{group.balance.toFixed(2)}
-                                </Typography>
-                            ) : group.balance < 0 ? (
-                                <Typography component="span" color="red">
-                                    {' '}
-                                    You owe: €{Math.abs(group.balance).toFixed(2)}
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={handleOpenSettleModal}
-                                        disabled={loading}
-                                        sx={{ ml: 2 }}
-                                    >
-                                        Settle Debt
-                                    </Button>
-                                </Typography>
-                            ) : (
-                                <Typography component="span">{' '}Balance: €0.00</Typography>
-                            )}
-                        </Typography>
                         <Typography variant="h6" sx={{ mb: 1 }}>
                             Members:
                         </Typography>
                         <List>
-                            {group.users.length > 0 ? (
-                                group.users.map((user) => (
+                            {group.groupMembers &&
+                                group.groupMembers.length > 0 ? (
+                                group?.groupMembers.map((user) => (
                                     <ListItem key={user.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <ListItemText primary={user.name} />
                                         <Button
@@ -281,8 +204,7 @@ function GroupDetails() {
                                 transactions.map((transaction) => (
                                     <ListItem key={transaction.id}>
                                         <ListItemText
-                                            primary={`${transaction.title}: €${transaction.amount.toFixed(2)} by ${transaction.user?.name || 'Unknown'}`}
-                                            secondary={new Date(transaction.date).toLocaleDateString()}
+                                            primary={`${transaction.title}: €${transaction.amount.toFixed(2)} by ${transaction.groupMemberId || 'Unknown'}`}
                                         />
                                     </ListItem>
                                 ))
@@ -372,9 +294,6 @@ function GroupDetails() {
             <Dialog open={openSettleModal} onClose={handleCloseSettleModal} maxWidth="sm" fullWidth>
                 <DialogTitle>Settle Debt</DialogTitle>
                 <DialogContent>
-                    <Typography sx={{ mb: 2 }}>
-                        You owe: €{group ? Math.abs(group.balance).toFixed(2) : '0.00'}
-                    </Typography>
                     <TextField
                         label="Amount to Settle (€)"
                         type="number"
@@ -384,19 +303,6 @@ function GroupDetails() {
                         inputProps={{ min: 0 }}
                     />
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseSettleModal} sx={{ textTransform: 'none' }}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleSettleDebt}
-                        variant="contained"
-                        disabled={loading}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Submit
-                    </Button>
-                </DialogActions>
             </Dialog>
         </Container>
     );
@@ -409,8 +315,8 @@ export interface User {
     name: string;
 }
 
-export async function fetchUsers(): Promise<User[]> {
-    const response = await fetch('http://localhost:5253/api/User');
+export async function fetchUsers(groupId: number): Promise<User[]> {
+    const response = await fetch(`http://localhost:5253/api/User/availableUsers/${groupId}`);
     if (!response.ok) {
         throw new Error('Failed to fetch users');
     }

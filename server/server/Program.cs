@@ -22,7 +22,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IGroupsService, GroupsService>();
 builder.Services.AddScoped<IUserService, UserService>();
-//builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
 
 builder.Services.AddCors(options =>
 {
@@ -48,20 +48,22 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    if (!dbContext.Groups.Any())
+    // Seed Groups if none exist
+    if (!await dbContext.Groups.AnyAsync())
     {
         var groups = new[]
         {
-            new Group { Title = "Family Gathering"},
-            new Group { Title = "Work Team"},
-            new Group { Title = "Friends Trip"},
-            new Group { Title = "Book Club"}
+            new Group { Title = "Family Gathering" },
+            new Group { Title = "Work Team" },
+            new Group { Title = "Friends Trip" },
+            new Group { Title = "Book Club" }
         };
         dbContext.Groups.AddRange(groups);
         await dbContext.SaveChangesAsync();
     }
-    /*
-    if (!dbContext.Users.Any())
+
+    // Seed Users if none exist
+    if (!await dbContext.Users.AnyAsync())
     {
         var users = new[]
         {
@@ -72,26 +74,57 @@ using (var scope = app.Services.CreateScope())
         };
         dbContext.Users.AddRange(users);
         await dbContext.SaveChangesAsync();
+    }
 
-        var group1 = await dbContext.Groups.FirstAsync(g => g.Title == "Family Gathering");
-        var group2 = await dbContext.Groups.FirstAsync(g => g.Title == "Work Team");
-        var alice = await dbContext.Users.FirstAsync(u => u.Name == "Alice");
-        var bob = await dbContext.Users.FirstAsync(u => u.Name == "Bob");
-        var michael = await dbContext.Users.FirstAsync(u => u.Name == "Michael");
-        group1.Users.Add(alice);
-        group1.Users.Add(bob);
-        group2.Users.Add(bob);
-        group1.Users.Add(michael);
-        group2.Users.Add(michael);
+    // Seed GroupMembers if none exist
+    if (!await dbContext.GroupMembers.AnyAsync())
+    {
+        var group1 = await dbContext.Groups.FirstOrDefaultAsync(g => g.Title == "Family Gathering");
+        var group2 = await dbContext.Groups.FirstOrDefaultAsync(g => g.Title == "Work Team");
+        var group3 = await dbContext.Groups.FirstOrDefaultAsync(g => g.Title == "Friends Trip");
+        var group4 = await dbContext.Groups.FirstOrDefaultAsync(g => g.Title == "Book Club");
+
+        var michael = await dbContext.Users.FirstOrDefaultAsync(u => u.Name == "Michael");
+        var alice = await dbContext.Users.FirstOrDefaultAsync(u => u.Name == "Alice");
+        var bob = await dbContext.Users.FirstOrDefaultAsync(u => u.Name == "Bob");
+        var charlie = await dbContext.Users.FirstOrDefaultAsync(u => u.Name == "Charlie");
+
+        // Ensure all required entities exist
+        if (group1 == null || group2 == null || group3 == null || group4 == null ||
+            michael == null || alice == null || bob == null || charlie == null)
+        {
+            throw new InvalidOperationException("Required groups or users not found.");
+        }
+
+        var groupMembers = new[]
+        {
+            new GroupMember { UserId = michael.Id, GroupId = group1.Id },
+            new GroupMember { UserId = alice.Id, GroupId = group2.Id },
+            new GroupMember { UserId = bob.Id, GroupId = group3.Id },
+            new GroupMember { UserId = charlie.Id, GroupId = group4.Id }
+        };
+
+        dbContext.GroupMembers.AddRange(groupMembers);
         await dbContext.SaveChangesAsync();
     }
 
-    if (!dbContext.Transactions.Any())
+    // Seed Transactions if none exist
+    if (!await dbContext.Transactions.AnyAsync())
     {
-        var alice = await dbContext.Users.FirstAsync(u => u.Name == "Alice");
-        var bob = await dbContext.Users.FirstAsync(u => u.Name == "Bob");
-        var group1 = await dbContext.Groups.FirstAsync(g => g.Title == "Family Gathering");
-        var group2 = await dbContext.Groups.FirstAsync(g => g.Title == "Work Team");
+        var michaelInFamily = await dbContext.GroupMembers
+            .FirstOrDefaultAsync(gm => gm.User.Name == "Michael" && gm.Group.Title == "Family Gathering");
+        var aliceInWork = await dbContext.GroupMembers
+            .FirstOrDefaultAsync(gm => gm.User.Name == "Alice" && gm.Group.Title == "Work Team");
+        var bobInFriends = await dbContext.GroupMembers
+            .FirstOrDefaultAsync(gm => gm.User.Name == "Bob" && gm.Group.Title == "Friends Trip");
+        var charlieInBookClub = await dbContext.GroupMembers
+            .FirstOrDefaultAsync(gm => gm.User.Name == "Charlie" && gm.Group.Title == "Book Club");
+
+        // Ensure all required group members exist
+        if (michaelInFamily == null || aliceInWork == null || bobInFriends == null || charlieInBookClub == null)
+        {
+            throw new InvalidOperationException("Required group members not found.");
+        }
 
         var transactions = new[]
         {
@@ -99,37 +132,25 @@ using (var scope = app.Services.CreateScope())
             {
                 Title = "Dinner Expense",
                 Amount = 50.00m,
-                Date = DateTime.Now.AddDays(-2),
-                UserId = alice.Id,
-                User = alice,
-                GroupId = group1.Id,
-                Group = group1
+                GroupMemberId = michaelInFamily.Id
             },
             new Transaction
             {
                 Title = "Taxi Fare",
                 Amount = 15.00m,
-                Date = DateTime.Now.AddDays(-1),
-                UserId = bob.Id,
-                User = bob,
-                GroupId = group1.Id,
-                Group = group1
+                GroupMemberId = aliceInWork.Id
             },
             new Transaction
             {
                 Title = "Office Supplies",
                 Amount = 30.00m,
-                Date = DateTime.Now,
-                UserId = bob.Id,
-                User = bob,
-                GroupId = group2.Id,
-                Group = group2
+                GroupMemberId = bobInFriends.Id
             }
         };
+
         dbContext.Transactions.AddRange(transactions);
         await dbContext.SaveChangesAsync();
     }
-    */
 }
 
 app.Run();

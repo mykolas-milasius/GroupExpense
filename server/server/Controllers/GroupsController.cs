@@ -51,7 +51,7 @@ public class GroupsController : ControllerBase
     /// <param name="createGroupDto">The group data to create.</param>
     /// <returns>The created group.</returns>
     [HttpPost]
-    public async Task<ActionResult<Group>> PostGroup(CreateGroupDto createGroupDto)
+    public async Task<ActionResult<Group>> CreateGroup(CreateGroupDto createGroupDto)
     {
         if (string.IsNullOrWhiteSpace(createGroupDto.Title))
             return BadRequest("Grupės pavadinimas yra privalomas");

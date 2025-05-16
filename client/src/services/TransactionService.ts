@@ -1,23 +1,6 @@
-import type { User } from './UserService';
+import type {TransactionDto} from "../models/TransactionModel.ts";
 
-interface Group {
-    id: number;
-    title: string;
-    users?: User[];
-}
-
-export interface Transaction {
-    id: number;
-    title: string;
-    amount: number;
-    date: string;
-    userId: number;
-    groupId: number;
-    user?: User;
-    group?: Group;
-}
-
-export async function createTransaction(transaction: Omit<Transaction, 'id' | 'date'>): Promise<Transaction> {
+export async function createTransaction(transaction: Omit<TransactionDto, 'id' | 'date'>): Promise<TransactionDto> {
     const response = await fetch('http://localhost:5253/api/Transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,7 +12,7 @@ export async function createTransaction(transaction: Omit<Transaction, 'id' | 'd
     return response.json();
 }
 
-export async function fetchTransactionsByGroup(groupId: number): Promise<Transaction[]> {
+export async function fetchTransactionsByGroup(groupId: number): Promise<TransactionDto[]> {
     const response = await fetch(`http://localhost:5253/api/Transactions/group/${groupId}`);
     if (!response.ok) {
         throw new Error('Failed to fetch transactions');

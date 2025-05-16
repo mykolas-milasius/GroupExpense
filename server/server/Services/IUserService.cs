@@ -7,4 +7,5 @@ namespace server.Services;
 public interface IUserService
 {
     Task<IEnumerable<User>> GetUsersAsync();
+    Task<IEnumerable<User>> GetAvailableUsersAsync(int groupId);
 }

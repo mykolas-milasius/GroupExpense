@@ -21,13 +21,11 @@ public class AppDbContext : DbContext
             .HasMany(g => g.GroupMembers);
 
         modelBuilder.Entity<Transaction>()
-            .HasOne(t => t.User)
+            .HasOne(t => t.GroupMember)
             .WithMany()
-            .HasForeignKey(t => t.UserId);
+            .HasForeignKey(t => t.GroupMemberId);
 
-        modelBuilder.Entity<Transaction>()
-            .HasOne(t => t.Group)
-            .WithMany()
-            .HasForeignKey(t => t.GroupId);
+        modelBuilder.Entity<User>()
+        .HasMany(g => g.GroupMembers);
     }
 }

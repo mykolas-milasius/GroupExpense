@@ -27,4 +27,12 @@ public class UserController : ControllerBase
         var users = await _userService.GetUsersAsync();
         return Ok(users);
     }
+
+
+    [HttpGet("availableUsers/{groupId}")]
+    public async Task<ActionResult<IEnumerable<User>>> GetAvailableUsers(int groupId)
+    {
+        var users = await _userService.GetAvailableUsersAsync(groupId);
+        return Ok(users);
+    }
 }

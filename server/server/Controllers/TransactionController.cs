@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using server.Dto;
 using server.Models;
 using server.Services;
 using System.Threading.Tasks;
@@ -17,11 +18,11 @@ public class TransactionsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<Transaction>> CreateTransaction(Transaction transaction)
+    public async Task<ActionResult<Transaction>> CreateTransaction(TransactionDto transactionDto)
     {
         try
         {
-            var createdTransaction = await _transactionService.CreateTransactionAsync(transaction);
+            var createdTransaction = await _transactionService.CreateTransactionAsync(transactionDto);
             return CreatedAtAction(nameof(CreateTransaction), new { id = createdTransaction.Id }, createdTransaction);
         }
         catch (ArgumentException ex)

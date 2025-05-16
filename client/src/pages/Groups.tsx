@@ -1,62 +1,63 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, Table, TableContainer, TableHead, TableRow, TableCell, TableBody, Paper, TextField, Alert } from '@mui/material';
+import {useNavigate} from 'react-router-dom';
+import {
+    Container,
+    Typography,
+    Box,
+    Button,
+    Table,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TableCell,
+    TableBody,
+    Paper,
+    TextField,
+    Alert
+} from '@mui/material';
+import type {GroupDto} from "../models/GroupModels.ts";
+import {fetchGroups} from "../services/GroupService.ts";
+import {handleCreateGroupp} from "../services/GroupService.ts";
 
-interface Group {
-    id: number;
-    title: string;
-}
 
 function Groups() {
-    const [groups, setGroups] = useState<Group[]>([]);
+    const [groups, setGroups] = useState<GroupDto[]>([]);
     const [newGroupTitle, setNewGroupTitle] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchGroups = async () => {
+        const loadGroups = async () => {
+            setLoading(true);
             try {
-                setLoading(true);
-                const response = await fetch('http://localhost:5253/api/Groups');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch groups');
-                }
-                const data: Group[] = await response.json();
-                setGroups(data);
+                const groups = await fetchGroups();
+                setGroups(groups ?? []);
             } catch (err) {
-                setError('Error fetching groups: ' + (err as Error).message);
+                setError('Error loading groups: ' + (err as Error).message);
             } finally {
                 setLoading(false);
             }
         };
-
-        fetchGroups();
+        loadGroups();
     }, []);
 
-    const handleCreateGroup = async () => {
+    const handleCreateGroup  = async () => {
         if (!newGroupTitle.trim()) {
             setError('Group title is required');
             return;
         }
 
-        try {
+        try{
             setLoading(true);
             setError(null);
-            const response = await fetch('http://localhost:5253/api/Groups', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newGroupTitle })
-            });
-            if (!response.ok) {
-                throw new Error('Failed to create group');
-            }
-            const createdGroup: Group = await response.json();
-            setGroups([...groups, { id: createdGroup.id, title: createdGroup.title, balance: 0 }]);
-            setNewGroupTitle('');
-        } catch (err) {
+            const createdGroup = await handleCreateGroupp(newGroupTitle);
+            setGroups([...groups, createdGroup]);
+        }
+        catch (err) {
             setError('Error creating group: ' + (err as Error).message);
-        } finally {
+        }
+        finally{
             setLoading(false);
         }
     };
@@ -107,7 +108,6 @@ function Groups() {
                             <TableRow>
                                 <TableCell>ID</TableCell>
                                 <TableCell>Title</TableCell>
-                                <TableCell>Balance</TableCell>
                                 <TableCell>Actions</TableCell>
                             </TableRow>
                         </TableHead>
@@ -123,21 +123,6 @@ function Groups() {
                                     <TableRow key={group.id}>
                                         <TableCell>{group.id}</TableCell>
                                         <TableCell>{group.title}</TableCell>
-                                        <TableCell>
-                                            {group.balance > 0 ? (
-                                                <Typography color="green">
-                                                    Owed to you: €{group.balance.toFixed(2)}
-                                                </Typography>
-                                            ) : group.balance < 0 ? (
-                                                <Typography color="red">
-                                                    You owe: €{Math.abs(group.balance).toFixed(2)}
-                                                </Typography>
-                                            ) : (
-                                                <Typography>
-                                                    Balance: €0.00
-                                                </Typography>
-                                            )}
-                                        </TableCell>
                                         <TableCell>
                                             <Button
                                                 variant="outlined"

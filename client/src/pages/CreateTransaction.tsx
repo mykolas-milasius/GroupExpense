@@ -133,8 +133,7 @@ function CreateTransaction() {
             await createTransaction({
                 title: transactionTitle,
                 amount,
-                userId: transactionUserId,
-                groupId: parseInt(id),
+                groupMemberId: transactionUserId
             });
 
             const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
