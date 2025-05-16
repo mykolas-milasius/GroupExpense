@@ -35,4 +35,11 @@ public class UserController : ControllerBase
         var users = await _userService.GetAvailableUsersAsync(groupId);
         return Ok(users);
     }
+
+    [HttpGet("groupMembers/{groupId}")]
+    public async Task<ActionResult<IEnumerable<User>>> GetGroupMembersFromGroup(int groupId)
+    {
+        var users = await _userService.GetGroupMembersFromGroup(groupId);
+        return Ok(users);
+    }
 }

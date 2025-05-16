@@ -8,4 +8,5 @@ public interface IUserService
 {
     Task<IEnumerable<User>> GetUsersAsync();
     Task<IEnumerable<User>> GetAvailableUsersAsync(int groupId);
+    Task<IEnumerable<GroupMemberDto>> GetGroupMembersFromGroup(int groupId);
 }

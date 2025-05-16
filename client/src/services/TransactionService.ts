@@ -1,7 +1,7 @@
 import type {TransactionDto} from "../models/TransactionModel.ts";
 
 export async function createTransaction(transaction: Omit<TransactionDto, 'id' | 'date'>): Promise<TransactionDto> {
-    const response = await fetch('http://localhost:5253/api/Transactions', {
+    const response = await fetch('http://localhost:5253/api/Transactions/createTransaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transaction)

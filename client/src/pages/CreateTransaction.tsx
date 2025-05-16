@@ -22,18 +22,14 @@ import {
     MenuItem,
 } from '@mui/material';
 import { createTransaction } from '../services/TransactionService';
-import type { User } from '../services/UserService';
-
-interface Group {
-    id: number;
-    title: string;
-    users: User[];
-}
+import type {GroupDto} from "../models/GroupModels.ts";
+import {fetchUsers} from "../services/UserService.ts";
+import type {User} from "./GroupDetails.tsx";
 
 function CreateTransaction() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [group, setGroup] = useState<Group | null>(null);
+    const [group, setGroup] = useState<GroupDto | null>(null);
     const [transactionTitle, setTransactionTitle] = useState('');
     const [transactionAmount, setTransactionAmount] = useState('');
     const [transactionUserId, setTransactionUserId] = useState<number | ''>(''); // Naudotojas, atlikęs transakciją
@@ -44,9 +40,11 @@ function CreateTransaction() {
     const [splitType, setSplitType] = useState<'Equally' | 'Percentage' | 'Dynamic'>('Equally');
     const [percentages, setPercentages] = useState<{ [key: number]: number }>({});
     const [amounts, setAmounts] = useState<{ [key: number]: number }>({});
+    const [allUsers, setAllUsers] = useState<User[]>([]);
     const fixedUserId = 1; // Hard-coded user ID (Michael)
 
     useEffect(() => {
+
         const fetchGroup = async () => {
             try {
                 setLoading(true);
@@ -54,7 +52,7 @@ function CreateTransaction() {
                 if (!response.ok) {
                     throw new Error('Failed to fetch group');
                 }
-                const groupData: Group = await response.json();
+                const groupData: GroupDto = await response.json();
                 setGroup(groupData);
             } catch (err) {
                 setError('Error fetching group: ' + (err as Error).message);
@@ -63,6 +61,12 @@ function CreateTransaction() {
             }
         };
 
+        async function getUsers(setAllUsers: (value: (((prevState: User[]) => User[]) | User[])) => void) {
+            const result = await fetchGroupMembers(parseInt(id!));
+            setAllUsers(result);
+        }
+
+        getUsers(setAllUsers);
         fetchGroup();
     }, [id]);
 
@@ -131,24 +135,28 @@ function CreateTransaction() {
             setLoading(true);
             setError(null);
             await createTransaction({
+                transactionType: parseInt(splitType),
+                groupMemberId: transactionUserId,
+                percentages,
+                amount: parseInt(transactionAmount),
                 title: transactionTitle,
-                amount,
-                groupMemberId: transactionUserId
             });
 
-            const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    settleType: splitType,
-                    percentages,
-                    amounts,
-                }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to split transaction');
-            }
+            // const response = await fetch(`http://localhost:5253/api/Transaction/createTransaction`, {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify({
+            //         transactionType: parseInt(splitType),
+            //         groupMemberId: transactionUserId,
+            //         percentages,
+            //         amount: parseInt(transactionAmount),
+            //         title: transactionTitle,
+            //     }),
+            // });
+            // if (!response.ok) {
+            //     const errorData = await response.json();
+            //     throw new Error(errorData.message || 'Failed to split transaction');
+            // }
             setSuccess('Transaction created successfully');
             setTimeout(() => {
                 navigate(`/groups/${id}`);
@@ -164,10 +172,6 @@ function CreateTransaction() {
     const handleBack = () => {
         navigate(`/groups/${id}`);
     };
-
-    const sortedUsers = group
-        ? [...group.users].sort((a, b) => (a.id === fixedUserId ? -1 : b.id === fixedUserId ? 1 : 0))
-        : [];
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -217,7 +221,7 @@ function CreateTransaction() {
                                 <MenuItem value="">
                                     <em>Select user</em>
                                 </MenuItem>
-                                {sortedUsers.map((user) => (
+                                {allUsers.map((user) => (
                                     <MenuItem key={user.id} value={user.id}>
                                         {user.id === fixedUserId ? 'Me' : user.name}
                                     </MenuItem>
@@ -254,21 +258,21 @@ function CreateTransaction() {
                     <FormControl component="fieldset" sx={{ mb: 2 }}>
                         <FormLabel component="legend">Split Type</FormLabel>
                         <RadioGroup value={splitType} onChange={handleSplitTypeChange}>
-                            <FormControlLabel value="Equally" control={<Radio />} label="Equally" />
-                            <FormControlLabel value="Percentage" control={<Radio />} label="Percentage" />
-                            <FormControlLabel value="Dynamic" control={<Radio />} label="Dynamic" />
+                            <FormControlLabel value={1} control={<Radio />} label="Equally" />
+                            <FormControlLabel value={2} control={<Radio />} label="Percentage" />
+                            <FormControlLabel value={3} control={<Radio />} label="Dynamic" />
                         </RadioGroup>
                     </FormControl>
 
                     {splitType === 'Equally' && group && (
                         <Typography>
-                            Each member will pay: €{(parseFloat(transactionAmount || '0') / group.users.length).toFixed(2)}
+                            Each member will pay: €{(parseFloat(transactionAmount || '0') / group!.groupMembers!.length).toFixed(2)}
                         </Typography>
                     )}
 
                     {splitType === 'Percentage' && group && (
                         <Box>
-                            {sortedUsers.map((user) => (
+                            {allUsers.map((user) => (
                                 <Box key={user.id} sx={{ mb: 2 }}>
                                     <TextField
                                         label={user.id === fixedUserId ? 'My Percentage' : `${user.name}'s Percentage`}
@@ -288,7 +292,7 @@ function CreateTransaction() {
 
                     {splitType === 'Dynamic' && group && (
                         <Box>
-                            {sortedUsers.map((user) => (
+                            {allUsers.map((user) => (
                                 <Box key={user.id} sx={{ mb: 2 }}>
                                     <TextField
                                         label={user.id === fixedUserId ? 'My Amount (€)' : `${user.name}'s Amount (€)`}
@@ -318,3 +322,11 @@ function CreateTransaction() {
 }
 
 export default CreateTransaction;
+
+export async function fetchGroupMembers(groupId: number): Promise<User[]> {
+    const response = await fetch(`http://localhost:5253/api/User/groupMembers/${groupId}`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch users');
+    }
+    return response.json();
+}

@@ -17,7 +17,7 @@ public class TransactionsController : ControllerBase
         _transactionService = transactionService;
     }
 
-    [HttpPost]
+    [HttpPost("createTransaction")]
     public async Task<ActionResult<Transaction>> CreateTransaction(TransactionDto transactionDto)
     {
         try

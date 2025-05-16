@@ -26,7 +26,15 @@ public class UserService : IUserService
         return await _context.Users
             .Where(u => !u.GroupMembers.Any(g => g.Id == groupId))
             .AsNoTracking()
-            //.Select(u => new {u.Id, u.Name})
+            //.Select(u => new GroupMemberDto {Id = u.Id, Name = u.Name, Amount } })
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<GroupMemberDto>> GetGroupMembersFromGroup(int groupId)
+    {
+        return await _context.GroupMembers
+            .Where(gm => gm.GroupId == groupId)
+            .Select(u => new GroupMemberDto {Id = u.Id, Name = u.User!.Name, Amount = u.Amount})
             .ToListAsync();
     }
 }
