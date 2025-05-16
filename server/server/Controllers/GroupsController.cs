@@ -72,6 +72,21 @@ public class GroupsController : ControllerBase
         else
         {
             return BadRequest("Failed to add the user to the group.");
-        }    
+        }
+    }
+
+    [HttpDelete("{id}/users/{userId}")]
+    public async Task<IActionResult> RemoveUserFromGroup(int id, int userId)
+    {
+        bool result = await _groupsService.RemoveUserFromGroupAsync(id, userId);
+
+        if (result)
+        {
+            return Ok();
+        }
+        else
+        {
+            return BadRequest("Failed to remove the user from the group.");
+        }
     }
 }
