@@ -1,4 +1,6 @@
 using server.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace server.Services;
 
@@ -13,4 +15,5 @@ public interface IGroupsService
     Task<bool> DeleteGroupAsync(int id);
     Task<bool> AddUserToGroupAsync(int groupId, int userId);
     Task<bool> RemoveUserFromGroupAsync(int groupId, int userId);
+    Task SettleDebtAsync(int groupId, int userId, SettleDebtRequestDto request);
 }

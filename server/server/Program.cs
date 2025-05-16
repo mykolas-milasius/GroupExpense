@@ -47,7 +47,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    
+
     if (!dbContext.Groups.Any())
     {
         var groups = new[]
@@ -127,6 +127,24 @@ using (var scope = app.Services.CreateScope())
             }
         };
         dbContext.Transactions.AddRange(transactions);
+        await dbContext.SaveChangesAsync();
+    }
+    
+    if (!dbContext.Settlements.Any())
+    {
+        var group1 = await dbContext.Groups.FirstAsync(g => g.Title == "Family Gathering");
+        var michael = await dbContext.Users.FirstAsync(u => u.Name == "Michael");
+        var settlements = new[]
+        {
+            new Settlement
+            {
+                GroupId = group1.Id,
+                UserId = michael.Id,
+                Amount = 10.00m,
+                Date = DateTime.Now
+            }
+        };
+        dbContext.Settlements.AddRange(settlements);
         await dbContext.SaveChangesAsync();
     }
 }

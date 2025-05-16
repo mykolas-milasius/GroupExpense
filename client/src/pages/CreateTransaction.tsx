@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, Alert, CircularProgress, TextField } from '@mui/material';
+import {
+    Container,
+    Typography,
+    Box,
+    Button,
+    Alert,
+    CircularProgress,
+    TextField,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    RadioGroup,
+    FormControlLabel,
+    Radio,
+    FormControl,
+    FormLabel,
+} from '@mui/material';
 import { createTransaction } from '../services/TransactionService';
 
 interface Group {
@@ -18,6 +35,11 @@ function CreateTransaction() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [openSplitModal, setOpenSplitModal] = useState(false);
+    const [splitType, setSplitType] = useState<'Equally' | 'Percentage' | 'Dynamic'>('Equally');
+    const [percentages, setPercentages] = useState<{ [key: number]: number }>({});
+    const [amounts, setAmounts] = useState<{ [key: number]: number }>({});
+    const fixedUserId = 1; // Hard-coded user ID (Michael)
 
     useEffect(() => {
         const fetchGroup = async () => {
@@ -39,7 +61,7 @@ function CreateTransaction() {
         fetchGroup();
     }, [id]);
 
-    const handleAddTransaction = async () => {
+    const handleOpenSplitModal = () => {
         if (!transactionTitle.trim()) {
             setError('Transaction title is required');
             return;
@@ -49,9 +71,51 @@ function CreateTransaction() {
             setError('Please enter a valid amount greater than zero');
             return;
         }
-        if (!id) {
-            setError('Group ID is missing');
-            return;
+        setOpenSplitModal(true);
+        setPercentages({});
+        setAmounts({});
+    };
+
+    const handleCloseSplitModal = () => {
+        setOpenSplitModal(false);
+        setSplitType('Equally');
+        setPercentages({});
+        setAmounts({});
+    };
+
+    const handleSplitTypeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setSplitType(event.target.value as 'Equally' | 'Percentage' | 'Dynamic');
+        setPercentages({});
+        setAmounts({});
+    };
+
+    const handlePercentageChange = (userId: number, value: string) => {
+        const percentage = parseFloat(value) || 0;
+        setPercentages((prev) => ({ ...prev, [userId]: percentage }));
+    };
+
+    const handleAmountChange = (userId: number, value: string) => {
+        const amount = parseFloat(value) || 0;
+        setAmounts((prev) => ({ ...prev, [userId]: amount }));
+    };
+
+    const handleAddTransaction = async () => {
+        if (!group || !id) return;
+
+        const amount = parseFloat(transactionAmount);
+        // Validacija
+        if (splitType === 'Percentage') {
+            const totalPercentage = Object.values(percentages).reduce((sum, p) => sum + p, 0);
+            if (totalPercentage !== 100) {
+                setError('Percentages must sum to 100%');
+                return;
+            }
+        } else if (splitType === 'Dynamic') {
+            const totalAmount = Object.values(amounts).reduce((sum, a) => sum + a, 0);
+            if (totalAmount !== amount) {
+                setError(`Total amount must equal €${amount.toFixed(2)}`);
+                return;
+            }
         }
 
         try {
@@ -60,13 +124,28 @@ function CreateTransaction() {
             await createTransaction({
                 title: transactionTitle,
                 amount,
-                userId: 1, // Fixed userId = 1
+                userId: fixedUserId,
                 groupId: parseInt(id)
             });
+            // Užregistruojame dalinimo būdą kaip atsiskaitymą
+            const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    settleType: splitType,
+                    percentages,
+                    amounts
+                })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to split transaction');
+            }
             setSuccess('Transaction created successfully');
             setTimeout(() => {
                 navigate(`/groups/${id}`);
             }, 2000);
+            handleCloseSplitModal();
         } catch (err) {
             setError('Error creating transaction: ' + (err as Error).message);
         } finally {
@@ -77,6 +156,11 @@ function CreateTransaction() {
     const handleBack = () => {
         navigate(`/groups/${id}`);
     };
+
+    // Rūšiuojame vartotojus, kad fixedUserId (1) būtų pirmas
+    const sortedUsers = group
+        ? [...group.users].sort((a, b) => (a.id === fixedUserId ? -1 : b.id === fixedUserId ? 1 : 0))
+        : [];
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -116,7 +200,7 @@ function CreateTransaction() {
                         />
                         <Button
                             variant="contained"
-                            onClick={handleAddTransaction}
+                            onClick={handleOpenSplitModal}
                             disabled={loading || !transactionTitle.trim() || !transactionAmount}
                         >
                             {loading ? 'Creating...' : 'Create Transaction'}
@@ -136,6 +220,78 @@ function CreateTransaction() {
                     </Alert>
                 )}
             </Box>
+
+            {/* Split Transaction Modal */}
+            <Dialog
+                open={openSplitModal}
+                onClose={handleCloseSplitModal}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Split Transaction</DialogTitle>
+                <DialogContent>
+                    <FormControl component="fieldset" sx={{ mb: 2 }}>
+                        <FormLabel component="legend">Split Type</FormLabel>
+                        <RadioGroup value={splitType} onChange={handleSplitTypeChange}>
+                            <FormControlLabel value="Equally" control={<Radio />} label="Equally" />
+                            <FormControlLabel value="Percentage" control={<Radio />} label="Percentage" />
+                            <FormControlLabel value="Dynamic" control={<Radio />} label="Dynamic" />
+                        </RadioGroup>
+                    </FormControl>
+
+                    {splitType === 'Equally' && group && (
+                        <Typography>
+                            Each member will pay: €{(parseFloat(transactionAmount || '0') / group.users.length).toFixed(2)}
+                        </Typography>
+                    )}
+
+                    {splitType === 'Percentage' && group && (
+                        <Box>
+                            {sortedUsers.map((user) => (
+                                <Box key={user.id} sx={{ mb: 2 }}>
+                                    <TextField
+                                        label={user.id === fixedUserId ? 'My Percentage' : `${user.name}'s Percentage`}
+                                        type="number"
+                                        value={percentages[user.id] || ''}
+                                        onChange={(e) => handlePercentageChange(user.id, e.target.value)}
+                                        fullWidth
+                                        inputProps={{ min: 0, max: 100 }}
+                                    />
+                                </Box>
+                            ))}
+                            <Typography>
+                                Total Percentage: {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {splitType === 'Dynamic' && group && (
+                        <Box>
+                            {sortedUsers.map((user) => (
+                                <Box key={user.id} sx={{ mb: 2 }}>
+                                    <TextField
+                                        label={user.id === fixedUserId ? 'My Amount (€)' : `${user.name}'s Amount (€)`}
+                                        type="number"
+                                        value={amounts[user.id] || ''}
+                                        onChange={(e) => handleAmountChange(user.id, e.target.value)}
+                                        fullWidth
+                                        inputProps={{ min: 0 }}
+                                    />
+                                </Box>
+                            ))}
+                            <Typography>
+                                Total Amount: €{Object.values(amounts).reduce((sum, a) => sum + a, 0).toFixed(2)}
+                            </Typography>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseSplitModal}>Cancel</Button>
+                    <Button onClick={handleAddTransaction} variant="contained" disabled={loading}>
+                        Submit
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }

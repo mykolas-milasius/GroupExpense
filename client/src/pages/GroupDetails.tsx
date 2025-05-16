@@ -14,12 +14,7 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    RadioGroup,
-    FormControlLabel,
-    Radio,
     TextField,
-    FormControl,
-    FormLabel,
 } from '@mui/material';
 import { fetchTransactionsByGroup } from '../services/TransactionService';
 import type { Transaction } from '../services/TransactionService';
@@ -40,9 +35,7 @@ function GroupDetails() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [openSettleModal, setOpenSettleModal] = useState(false);
-    const [settleType, setSettleType] = useState<'Equally' | 'Percentage' | 'Dynamic'>('Equally');
-    const [percentages, setPercentages] = useState<{ [key: number]: number }>({});
-    const [amounts, setAmounts] = useState<{ [key: number]: number }>({});
+    const [settleAmount, setSettleAmount] = useState('');
     const fixedUserId = 1; // Hard-coded user ID (Michael)
 
     useEffect(() => {
@@ -130,61 +123,55 @@ function GroupDetails() {
 
     const handleOpenSettleModal = () => {
         setOpenSettleModal(true);
-        setPercentages({});
-        setAmounts({});
+        setSettleAmount('');
     };
 
     const handleCloseSettleModal = () => {
         setOpenSettleModal(false);
-        setSettleType('Equally');
-        setPercentages({});
-        setAmounts({});
+        setSettleAmount('');
     };
 
-    const handleSettleTypeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setSettleType(event.target.value as 'Equally' | 'Percentage' | 'Dynamic');
-        setPercentages({});
-        setAmounts({});
-    };
-
-    const handlePercentageChange = (userId: number, value: string) => {
-        const percentage = parseFloat(value) || 0;
-        setPercentages((prev) => ({ ...prev, [userId]: percentage }));
-    };
-
-    const handleAmountChange = (userId: number, value: string) => {
-        const amount = parseFloat(value) || 0;
-        setAmounts((prev) => ({ ...prev, [userId]: amount }));
-    };
-
-    const handleSettleDebt = () => {
+    const handleSettleDebt = async () => {
         if (!group) return;
 
-        // Validacija
-        if (settleType === 'Percentage') {
-            const totalPercentage = Object.values(percentages).reduce((sum, p) => sum + p, 0);
-            if (totalPercentage !== 100) {
-                setError('Percentages must sum to 100%');
-                return;
-            }
-        } else if (settleType === 'Dynamic') {
-            const totalAmount = Object.values(amounts).reduce((sum, a) => sum + a, 0);
-            if (totalAmount !== Math.abs(group.balance)) {
-                setError(`Total amount must equal €${Math.abs(group.balance).toFixed(2)}`);
-                return;
-            }
+        const amount = parseFloat(settleAmount);
+        if (isNaN(amount) || amount <= 0) {
+            setError('Please enter a valid amount greater than zero');
+            return;
+        }
+        if (amount > Math.abs(group.balance)) {
+            setError(`Amount cannot exceed your debt of €${Math.abs(group.balance).toFixed(2)}`);
+            return;
         }
 
-        // Čia būtų backend'o užklausa, bet dabar tik uždarome modalą
-        setSuccess('Debt settlement submitted (frontend only)');
-        setTimeout(() => setSuccess(null), 3000);
-        handleCloseSettleModal();
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    settleType: 'Dynamic',
+                    percentages: {},
+                    amounts: { [fixedUserId]: amount }
+                })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to settle debt');
+            }
+            const updatedGroupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
+            const updatedGroup: Group = await updatedGroupResponse.json();
+            setGroup(updatedGroup);
+            setSuccess('Debt settled successfully');
+            setTimeout(() => setSuccess(null), 3000);
+            handleCloseSettleModal();
+        } catch (err) {
+            setError('Error settling debt: ' + (err as Error).message);
+        } finally {
+            setLoading(false);
+        }
     };
-
-    // Rūšiuojame vartotojus, kad fixedUserId (1) būtų pirmas
-    const sortedUsers = group
-        ? [...group.users].sort((a, b) => (a.id === fixedUserId ? -1 : b.id === fixedUserId ? 1 : 0))
-        : [];
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -313,60 +300,17 @@ function GroupDetails() {
             >
                 <DialogTitle>Settle Debt</DialogTitle>
                 <DialogContent>
-                    <FormControl component="fieldset" sx={{ mb: 2 }}>
-                        <FormLabel component="legend">Settle Type</FormLabel>
-                        <RadioGroup value={settleType} onChange={handleSettleTypeChange}>
-                            <FormControlLabel value="Equally" control={<Radio />} label="Equally" />
-                            <FormControlLabel value="Percentage" control={<Radio />} label="Percentage" />
-                            <FormControlLabel value="Dynamic" control={<Radio />} label="Dynamic" />
-                        </RadioGroup>
-                    </FormControl>
-
-                    {settleType === 'Equally' && group && (
-                        <Typography>
-                            Each member will pay: €{(Math.abs(group.balance) / group.users.length).toFixed(2)}
-                        </Typography>
-                    )}
-
-                    {settleType === 'Percentage' && group && (
-                        <Box>
-                            {sortedUsers.map((user) => (
-                                <Box key={user.id} sx={{ mb: 2 }}>
-                                    <TextField
-                                        label={user.id === fixedUserId ? 'My Percentage' : `${user.name}'s Percentage`}
-                                        type="number"
-                                        value={percentages[user.id] || ''}
-                                        onChange={(e) => handlePercentageChange(user.id, e.target.value)}
-                                        fullWidth
-                                        inputProps={{ min: 0, max: 100 }}
-                                    />
-                                </Box>
-                            ))}
-                            <Typography>
-                                Total Percentage: {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
-                            </Typography>
-                        </Box>
-                    )}
-
-                    {settleType === 'Dynamic' && group && (
-                        <Box>
-                            {sortedUsers.map((user) => (
-                                <Box key={user.id} sx={{ mb: 2 }}>
-                                    <TextField
-                                        label={user.id === fixedUserId ? 'My Amount (€)' : `${user.name}'s Amount (€)`}
-                                        type="number"
-                                        value={amounts[user.id] || ''}
-                                        onChange={(e) => handleAmountChange(user.id, e.target.value)}
-                                        fullWidth
-                                        inputProps={{ min: 0 }}
-                                    />
-                                </Box>
-                            ))}
-                            <Typography>
-                                Total Amount: €{Object.values(amounts).reduce((sum, a) => sum + a, 0).toFixed(2)}
-                            </Typography>
-                        </Box>
-                    )}
+                    <Typography sx={{ mb: 2 }}>
+                        You owe: €{group ? Math.abs(group.balance).toFixed(2) : '0.00'}
+                    </Typography>
+                    <TextField
+                        label="Amount to Settle (€)"
+                        type="number"
+                        value={settleAmount}
+                        onChange={(e) => setSettleAmount(e.target.value)}
+                        fullWidth
+                        inputProps={{ min: 0 }}
+                    />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseSettleModal}>Cancel</Button>

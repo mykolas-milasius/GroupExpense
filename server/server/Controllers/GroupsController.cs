@@ -35,7 +35,7 @@ public class GroupsController : ControllerBase
     /// <param name="id">The ID of the group.</param>
     /// <returns>The group with the specified ID.</returns>
     [HttpGet("{id}")]
-    public async Task<ActionResult<Group>> GetGroup(int id)
+    public async Task<ActionResult<GroupDto>> GetGroup(int id)
     {
         var group = await _groupsService.GetGroupAsync(id);
         if (group == null)
@@ -58,5 +58,29 @@ public class GroupsController : ControllerBase
 
         var createdGroup = await _groupsService.CreateGroupAsync(createGroupDto);
         return CreatedAtAction(nameof(GetGroup), new { id = createdGroup.Id }, createdGroup);
+    }
+
+    /// <summary>
+    /// Settles debt for a group or splits a transaction.
+    /// </summary>
+    /// <param name="groupId">The ID of the group.</param>
+    /// <param name="request">The settlement request data.</param>
+    /// <returns>No content if successful.</returns>
+    [HttpPost("{groupId}/settle")]
+    public async Task<ActionResult> SettleDebt(int groupId, [FromBody] SettleDebtRequestDto request)
+    {
+        try
+        {
+            await _groupsService.SettleDebtAsync(groupId, FixedUserId, request);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }
