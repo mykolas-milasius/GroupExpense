@@ -17,13 +17,17 @@ import {
     Radio,
     FormControl,
     FormLabel,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import { createTransaction } from '../services/TransactionService';
+import type { User } from '../services/UserService';
 
 interface Group {
     id: number;
     title: string;
-    users: { id: number; name: string }[];
+    users: User[];
 }
 
 function CreateTransaction() {
@@ -32,6 +36,7 @@ function CreateTransaction() {
     const [group, setGroup] = useState<Group | null>(null);
     const [transactionTitle, setTransactionTitle] = useState('');
     const [transactionAmount, setTransactionAmount] = useState('');
+    const [transactionUserId, setTransactionUserId] = useState<number | ''>(''); // Naudotojas, atlikęs transakciją
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -71,6 +76,10 @@ function CreateTransaction() {
             setError('Please enter a valid amount greater than zero');
             return;
         }
+        if (!transactionUserId) {
+            setError('Please select a user who performed the transaction');
+            return;
+        }
         setOpenSplitModal(true);
         setPercentages({});
         setAmounts({});
@@ -100,7 +109,7 @@ function CreateTransaction() {
     };
 
     const handleAddTransaction = async () => {
-        if (!group || !id) return;
+        if (!group || !id || !transactionUserId) return;
 
         const amount = parseFloat(transactionAmount);
         // Validacija
@@ -124,8 +133,8 @@ function CreateTransaction() {
             await createTransaction({
                 title: transactionTitle,
                 amount,
-                userId: fixedUserId,
-                groupId: parseInt(id)
+                userId: transactionUserId, // Perduodame pasirinktą userId
+                groupId: parseInt(id),
             });
             // Užregistruojame dalinimo būdą kaip atsiskaitymą
             const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
@@ -134,8 +143,8 @@ function CreateTransaction() {
                 body: JSON.stringify({
                     settleType: splitType,
                     percentages,
-                    amounts
-                })
+                    amounts,
+                }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -157,7 +166,6 @@ function CreateTransaction() {
         navigate(`/groups/${id}`);
     };
 
-    // Rūšiuojame vartotojus, kad fixedUserId (1) būtų pirmas
     const sortedUsers = group
         ? [...group.users].sort((a, b) => (a.id === fixedUserId ? -1 : b.id === fixedUserId ? 1 : 0))
         : [];
@@ -198,10 +206,29 @@ function CreateTransaction() {
                             disabled={loading}
                             sx={{ mb: 2 }}
                         />
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                            <InputLabel id="user-select-label">Performed by</InputLabel>
+                            <Select
+                                labelId="user-select-label"
+                                value={transactionUserId}
+                                label="Performed by"
+                                onChange={(e) => setTransactionUserId(Number(e.target.value))}
+                                disabled={loading}
+                            >
+                                <MenuItem value="">
+                                    <em>Select user</em>
+                                </MenuItem>
+                                {sortedUsers.map((user) => (
+                                    <MenuItem key={user.id} value={user.id}>
+                                        {user.id === fixedUserId ? 'Me' : user.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                         <Button
                             variant="contained"
                             onClick={handleOpenSplitModal}
-                            disabled={loading || !transactionTitle.trim() || !transactionAmount}
+                            disabled={loading || !transactionTitle.trim() || !transactionAmount || !transactionUserId}
                         >
                             {loading ? 'Creating...' : 'Create Transaction'}
                         </Button>
@@ -222,12 +249,7 @@ function CreateTransaction() {
             </Box>
 
             {/* Split Transaction Modal */}
-            <Dialog
-                open={openSplitModal}
-                onClose={handleCloseSplitModal}
-                maxWidth="sm"
-                fullWidth
-            >
+            <Dialog open={openSplitModal} onClose={handleCloseSplitModal} maxWidth="sm" fullWidth>
                 <DialogTitle>Split Transaction</DialogTitle>
                 <DialogContent>
                     <FormControl component="fieldset" sx={{ mb: 2 }}>
