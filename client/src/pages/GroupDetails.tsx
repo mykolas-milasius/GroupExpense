@@ -15,9 +15,14 @@ import {
     DialogContent,
     DialogActions,
     TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import { fetchTransactionsByGroup } from '../services/TransactionService';
 import type { Transaction } from '../services/TransactionService';
+
 
 interface Group {
     id: number;
@@ -31,10 +36,13 @@ function GroupDetails() {
     const navigate = useNavigate();
     const [group, setGroup] = useState<Group | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]); // Visi sistemos naudotojai
+    const [selectedUserId, setSelectedUserId] = useState<number | ''>(''); // Pasirinktas naudotojas pridėjimui
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [openSettleModal, setOpenSettleModal] = useState(false);
+    const [openAddUserModal, setOpenAddUserModal] = useState(false); // Modalas naudotojo pridėjimui
     const [settleAmount, setSettleAmount] = useState('');
     const fixedUserId = 1; // Hard-coded user ID (Michael)
 
@@ -42,6 +50,7 @@ function GroupDetails() {
         const fetchData = async () => {
             try {
                 setLoading(true);
+                // Gauname grupės informaciją
                 const groupResponse = await fetch(`http://localhost:5253/api/Groups/${id}`);
                 if (!groupResponse.ok) {
                     throw new Error('Failed to fetch group');
@@ -49,8 +58,13 @@ function GroupDetails() {
                 const groupData: Group = await groupResponse.json();
                 setGroup(groupData);
 
+                // Gauname transakcijas
                 const transactionsData = await fetchTransactionsByGroup(parseInt(id!));
                 setTransactions(transactionsData);
+
+                // Gauname visus naudotojus
+                const usersData = await fetchUsers();
+                setAllUsers(usersData);
             } catch (err) {
                 setError('Error fetching data: ' + (err as Error).message);
             } finally {
@@ -61,18 +75,28 @@ function GroupDetails() {
         fetchData();
     }, [id]);
 
-    const handleAddUser = async () => {
-        if (!group) return;
+    const handleOpenAddUserModal = () => {
+        setOpenAddUserModal(true);
+        setSelectedUserId(''); // Išvalome pasirinkimą
+    };
 
-        if (group.users.some((u) => u.id === fixedUserId)) {
-            setError('You are already a member of this group');
+    const handleCloseAddUserModal = () => {
+        setOpenAddUserModal(false);
+        setSelectedUserId('');
+    };
+
+    const handleAddUser = async () => {
+        if (!group || !selectedUserId) return;
+
+        if (group.users.some((u) => u.id === selectedUserId)) {
+            setError('This user is already a member of the group');
             return;
         }
 
         try {
             setLoading(true);
             setError(null);
-            const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${fixedUserId}`, {
+            const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${selectedUserId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -84,6 +108,7 @@ function GroupDetails() {
             setGroup(updatedGroup);
             setSuccess('User added successfully');
             setTimeout(() => setSuccess(null), 3000);
+            handleCloseAddUserModal();
         } catch (err) {
             setError('Error adding user: ' + (err as Error).message);
         } finally {
@@ -153,8 +178,8 @@ function GroupDetails() {
                 body: JSON.stringify({
                     settleType: 'Dynamic',
                     percentages: {},
-                    amounts: { [fixedUserId]: amount }
-                })
+                    amounts: { [fixedUserId]: amount },
+                }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -172,6 +197,9 @@ function GroupDetails() {
             setLoading(false);
         }
     };
+
+    // Filtruojame naudotojus, kurie dar nėra grupėje
+    const availableUsers = allUsers.filter((user) => !group?.users.some((u) => u.id === user.id));
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -233,6 +261,7 @@ function GroupDetails() {
                                             color="error"
                                             onClick={() => handleRemoveUser(user.id)}
                                             disabled={loading || user.id === fixedUserId}
+                                            sx={{ textTransform: 'none' }}
                                         >
                                             Remove
                                         </Button>
@@ -266,12 +295,18 @@ function GroupDetails() {
                         <Box sx={{ mt: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <Button
                                 variant="contained"
-                                onClick={handleAddUser}
-                                disabled={loading || (group && group.users.some((u) => u.id === fixedUserId))}
+                                onClick={handleOpenAddUserModal}
+                                disabled={loading || availableUsers.length === 0}
+                                sx={{ textTransform: 'none' }}
                             >
-                                {loading ? 'Adding...' : 'Add Yourself to Group'}
+                                Add Member to Group
                             </Button>
-                            <Button variant="contained" onClick={handleNewTransaction} disabled={loading}>
+                            <Button
+                                variant="contained"
+                                onClick={handleNewTransaction}
+                                disabled={loading}
+                                sx={{ textTransform: 'none' }}
+                            >
                                 New Transaction
                             </Button>
                         </Box>
@@ -280,7 +315,11 @@ function GroupDetails() {
                                 {success}
                             </Alert>
                         )}
-                        <Button variant="contained" onClick={handleBack}>
+                        <Button
+                            variant="contained"
+                            onClick={handleBack}
+                            sx={{ textTransform: 'none' }}
+                        >
                             Back to Groups
                         </Button>
                     </Box>
@@ -291,13 +330,46 @@ function GroupDetails() {
                 )}
             </Box>
 
+            {/* Add User Modal */}
+            <Dialog open={openAddUserModal} onClose={handleCloseAddUserModal} maxWidth="sm" fullWidth>
+                <DialogTitle>Add Member to Group</DialogTitle>
+                <DialogContent>
+                    <FormControl fullWidth sx={{ mt: 2 }}>
+                        <InputLabel id="user-select-label">Select User</InputLabel>
+                        <Select
+                            labelId="user-select-label"
+                            value={selectedUserId}
+                            label="Select User"
+                            onChange={(e) => setSelectedUserId(Number(e.target.value))}
+                        >
+                            <MenuItem value="">
+                                <em>Select a user</em>
+                            </MenuItem>
+                            {availableUsers.map((user) => (
+                                <MenuItem key={user.id} value={user.id}>
+                                    {user.name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseAddUserModal} sx={{ textTransform: 'none' }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleAddUser}
+                        variant="contained"
+                        disabled={loading || !selectedUserId}
+                        sx={{ textTransform: 'none' }}
+                    >
+                        Add
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             {/* Settle Debt Modal */}
-            <Dialog
-                open={openSettleModal}
-                onClose={handleCloseSettleModal}
-                maxWidth="sm"
-                fullWidth
-            >
+            <Dialog open={openSettleModal} onClose={handleCloseSettleModal} maxWidth="sm" fullWidth>
                 <DialogTitle>Settle Debt</DialogTitle>
                 <DialogContent>
                     <Typography sx={{ mb: 2 }}>
@@ -313,8 +385,15 @@ function GroupDetails() {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseSettleModal}>Cancel</Button>
-                    <Button onClick={handleSettleDebt} variant="contained" disabled={loading}>
+                    <Button onClick={handleCloseSettleModal} sx={{ textTransform: 'none' }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSettleDebt}
+                        variant="contained"
+                        disabled={loading}
+                        sx={{ textTransform: 'none' }}
+                    >
                         Submit
                     </Button>
                 </DialogActions>
@@ -324,3 +403,16 @@ function GroupDetails() {
 }
 
 export default GroupDetails;
+
+export interface User {
+    id: number;
+    name: string;
+}
+
+export async function fetchUsers(): Promise<User[]> {
+    const response = await fetch('http://localhost:5253/api/User');
+    if (!response.ok) {
+        throw new Error('Failed to fetch users');
+    }
+    return response.json();
+}

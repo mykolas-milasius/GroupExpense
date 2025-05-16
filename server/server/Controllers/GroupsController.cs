@@ -83,4 +83,20 @@ public class GroupsController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    [HttpPost("{id}/users/{userId}")]
+    public async Task<IActionResult> AddUserToGroup(int id, int userId)
+    {
+
+        bool result = await _groupsService.AddUserToGroupAsync(id, userId);
+
+        if (result)
+        {
+            return Ok();
+        }
+        else
+        {
+            return BadRequest("Failed to add the user to the group.");
+        }    
+    }
 }
