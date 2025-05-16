@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, Alert, CircularProgress, FormControl, InputLabel, Select, MenuItem, TextField } from '@mui/material';
+import { Container, Typography, Box, Button, Alert, CircularProgress, TextField } from '@mui/material';
 import { createTransaction } from '../services/TransactionService';
-import type { User } from '../services/UserService';
 
 interface Group {
     id: number;
     title: string;
-    users: User[];
+    users: { id: number; name: string }[];
 }
 
 function CreateTransaction() {
@@ -16,7 +15,6 @@ function CreateTransaction() {
     const [group, setGroup] = useState<Group | null>(null);
     const [transactionTitle, setTransactionTitle] = useState('');
     const [transactionAmount, setTransactionAmount] = useState('');
-    const [transactionUserId, setTransactionUserId] = useState<number | ''>('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -51,10 +49,6 @@ function CreateTransaction() {
             setError('Please enter a valid amount greater than zero');
             return;
         }
-        if (!transactionUserId) {
-            setError('Please select a user for the transaction');
-            return;
-        }
         if (!id) {
             setError('Group ID is missing');
             return;
@@ -66,7 +60,7 @@ function CreateTransaction() {
             await createTransaction({
                 title: transactionTitle,
                 amount,
-                userId: transactionUserId,
+                userId: 1, // Fixed userId = 1
                 groupId: parseInt(id)
             });
             setSuccess('Transaction created successfully');
@@ -120,28 +114,10 @@ function CreateTransaction() {
                             disabled={loading}
                             sx={{ mb: 2 }}
                         />
-                        <FormControl fullWidth>
-                            <InputLabel>User</InputLabel>
-                            <Select
-                                value={transactionUserId}
-                                onChange={(e) => setTransactionUserId(e.target.value as number)}
-                                label="User"
-                                disabled={loading}
-                            >
-                                <MenuItem value="">
-                                    <em>Select a user</em>
-                                </MenuItem>
-                                {group.users.map((user) => (
-                                    <MenuItem key={user.id} value={user.id}>
-                                        {user.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
                         <Button
                             variant="contained"
                             onClick={handleAddTransaction}
-                            disabled={loading || !transactionTitle.trim() || !transactionAmount || !transactionUserId}
+                            disabled={loading || !transactionTitle.trim() || !transactionAmount}
                         >
                             {loading ? 'Creating...' : 'Create Transaction'}
                         </Button>
