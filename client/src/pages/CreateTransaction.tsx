@@ -112,7 +112,7 @@ function CreateTransaction() {
         if (!group || !id || !transactionUserId) return;
 
         const amount = parseFloat(transactionAmount);
-        // Validacija
+
         if (splitType === 'Percentage') {
             const totalPercentage = Object.values(percentages).reduce((sum, p) => sum + p, 0);
             if (totalPercentage !== 100) {
@@ -133,10 +133,10 @@ function CreateTransaction() {
             await createTransaction({
                 title: transactionTitle,
                 amount,
-                userId: transactionUserId, // Perduodame pasirinktą userId
+                userId: transactionUserId,
                 groupId: parseInt(id),
             });
-            // Užregistruojame dalinimo būdą kaip atsiskaitymą
+
             const response = await fetch(`http://localhost:5253/api/Groups/${id}/settle`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

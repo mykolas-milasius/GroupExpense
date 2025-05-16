@@ -22,7 +22,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IGroupsService, GroupsService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ITransactionService, TransactionService>();
+//builder.Services.AddScoped<ITransactionService, TransactionService>();
 
 builder.Services.AddCors(options =>
 {
@@ -60,7 +60,7 @@ using (var scope = app.Services.CreateScope())
         dbContext.Groups.AddRange(groups);
         await dbContext.SaveChangesAsync();
     }
-
+    /*
     if (!dbContext.Users.Any())
     {
         var users = new[]
@@ -129,24 +129,7 @@ using (var scope = app.Services.CreateScope())
         dbContext.Transactions.AddRange(transactions);
         await dbContext.SaveChangesAsync();
     }
-    
-    if (!dbContext.Settlements.Any())
-    {
-        var group1 = await dbContext.Groups.FirstAsync(g => g.Title == "Family Gathering");
-        var michael = await dbContext.Users.FirstAsync(u => u.Name == "Michael");
-        var settlements = new[]
-        {
-            new Settlement
-            {
-                GroupId = group1.Id,
-                UserId = michael.Id,
-                Amount = 10.00m,
-                Date = DateTime.Now
-            }
-        };
-        dbContext.Settlements.AddRange(settlements);
-        await dbContext.SaveChangesAsync();
-    }
+    */
 }
 
 app.Run();

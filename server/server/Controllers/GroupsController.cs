@@ -25,7 +25,7 @@ public class GroupsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GroupDto>>> GetGroups()
     {
-        var groups = await _groupsService.GetGroupsWithBalanceAsync(FixedUserId);
+        var groups = await _groupsService.GetGroupsAsync();
         return Ok(groups);
     }
 
@@ -51,7 +51,7 @@ public class GroupsController : ControllerBase
     /// <param name="createGroupDto">The group data to create.</param>
     /// <returns>The created group.</returns>
     [HttpPost]
-    public async Task<ActionResult<Group>> PostGroup([FromBody] CreateGroupDto createGroupDto)
+    public async Task<ActionResult<Group>> PostGroup(CreateGroupDto createGroupDto)
     {
         if (string.IsNullOrWhiteSpace(createGroupDto.Title))
             return BadRequest("Grupės pavadinimas yra privalomas");
@@ -60,34 +60,9 @@ public class GroupsController : ControllerBase
         return CreatedAtAction(nameof(GetGroup), new { id = createdGroup.Id }, createdGroup);
     }
 
-    /// <summary>
-    /// Settles debt for a group or splits a transaction.
-    /// </summary>
-    /// <param name="groupId">The ID of the group.</param>
-    /// <param name="request">The settlement request data.</param>
-    /// <returns>No content if successful.</returns>
-    [HttpPost("{groupId}/settle")]
-    public async Task<ActionResult> SettleDebt(int groupId, [FromBody] SettleDebtRequestDto request)
-    {
-        try
-        {
-            await _groupsService.SettleDebtAsync(groupId, FixedUserId, request);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
     [HttpPost("{id}/users/{userId}")]
     public async Task<IActionResult> AddUserToGroup(int id, int userId)
     {
-
         bool result = await _groupsService.AddUserToGroupAsync(id, userId);
 
         if (result)

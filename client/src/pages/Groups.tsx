@@ -5,7 +5,6 @@ import { Container, Typography, Box, Button, Table, TableContainer, TableHead, T
 interface Group {
     id: number;
     title: string;
-    balance: number;
 }
 
 function Groups() {
