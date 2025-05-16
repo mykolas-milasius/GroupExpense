@@ -1,6 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, Alert, CircularProgress, List, ListItem, ListItemText } from '@mui/material';
+import {
+    Container,
+    Typography,
+    Box,
+    Button,
+    Alert,
+    CircularProgress,
+    List,
+    ListItem,
+    ListItemText,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    RadioGroup,
+    FormControlLabel,
+    Radio,
+    TextField,
+    FormControl,
+    FormLabel,
+} from '@mui/material';
 import { fetchTransactionsByGroup } from '../services/TransactionService';
 import type { Transaction } from '../services/TransactionService';
 
@@ -19,6 +39,11 @@ function GroupDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [openSettleModal, setOpenSettleModal] = useState(false);
+    const [settleType, setSettleType] = useState<'Equally' | 'Percentage' | 'Dynamic'>('Equally');
+    const [percentages, setPercentages] = useState<{ [key: number]: number }>({});
+    const [amounts, setAmounts] = useState<{ [key: number]: number }>({});
+    const fixedUserId = 1; // Hard-coded user ID (Michael)
 
     useEffect(() => {
         const fetchData = async () => {
@@ -46,7 +71,6 @@ function GroupDetails() {
     const handleAddUser = async () => {
         if (!group) return;
 
-        const fixedUserId = 1;
         if (group.users.some((u) => u.id === fixedUserId)) {
             setError('You are already a member of this group');
             return;
@@ -57,7 +81,7 @@ function GroupDetails() {
             setError(null);
             const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${fixedUserId}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
             if (!response.ok) {
                 throw new Error('Failed to add user to group');
@@ -79,7 +103,7 @@ function GroupDetails() {
             setLoading(true);
             setError(null);
             const response = await fetch(`http://localhost:5253/api/Groups/${id}/users/${userId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
             if (!response.ok) {
                 throw new Error('Failed to remove user from group');
@@ -103,6 +127,64 @@ function GroupDetails() {
     const handleBack = () => {
         navigate('/groups');
     };
+
+    const handleOpenSettleModal = () => {
+        setOpenSettleModal(true);
+        setPercentages({});
+        setAmounts({});
+    };
+
+    const handleCloseSettleModal = () => {
+        setOpenSettleModal(false);
+        setSettleType('Equally');
+        setPercentages({});
+        setAmounts({});
+    };
+
+    const handleSettleTypeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setSettleType(event.target.value as 'Equally' | 'Percentage' | 'Dynamic');
+        setPercentages({});
+        setAmounts({});
+    };
+
+    const handlePercentageChange = (userId: number, value: string) => {
+        const percentage = parseFloat(value) || 0;
+        setPercentages((prev) => ({ ...prev, [userId]: percentage }));
+    };
+
+    const handleAmountChange = (userId: number, value: string) => {
+        const amount = parseFloat(value) || 0;
+        setAmounts((prev) => ({ ...prev, [userId]: amount }));
+    };
+
+    const handleSettleDebt = () => {
+        if (!group) return;
+
+        // Validacija
+        if (settleType === 'Percentage') {
+            const totalPercentage = Object.values(percentages).reduce((sum, p) => sum + p, 0);
+            if (totalPercentage !== 100) {
+                setError('Percentages must sum to 100%');
+                return;
+            }
+        } else if (settleType === 'Dynamic') {
+            const totalAmount = Object.values(amounts).reduce((sum, a) => sum + a, 0);
+            if (totalAmount !== Math.abs(group.balance)) {
+                setError(`Total amount must equal €${Math.abs(group.balance).toFixed(2)}`);
+                return;
+            }
+        }
+
+        // Čia būtų backend'o užklausa, bet dabar tik uždarome modalą
+        setSuccess('Debt settlement submitted (frontend only)');
+        setTimeout(() => setSuccess(null), 3000);
+        handleCloseSettleModal();
+    };
+
+    // Rūšiuojame vartotojus, kad fixedUserId (1) būtų pirmas
+    const sortedUsers = group
+        ? [...group.users].sort((a, b) => (a.id === fixedUserId ? -1 : b.id === fixedUserId ? 1 : 0))
+        : [];
 
     return (
         <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -130,16 +212,25 @@ function GroupDetails() {
                             Balance:
                             {group.balance > 0 ? (
                                 <Typography component="span" color="green">
-                                    {' '}Owed to you: €{group.balance.toFixed(2)}
+                                    {' '}
+                                    Owed to you: €{group.balance.toFixed(2)}
                                 </Typography>
                             ) : group.balance < 0 ? (
                                 <Typography component="span" color="red">
-                                    {' '}You owe: €{Math.abs(group.balance).toFixed(2)}
+                                    {' '}
+                                    You owe: €{Math.abs(group.balance).toFixed(2)}
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleOpenSettleModal}
+                                        disabled={loading}
+                                        sx={{ ml: 2 }}
+                                    >
+                                        Settle Debt
+                                    </Button>
                                 </Typography>
                             ) : (
-                                <Typography component="span">
-                                    {' '}Balance: €0.00
-                                </Typography>
+                                <Typography component="span">{' '}Balance: €0.00</Typography>
                             )}
                         </Typography>
                         <Typography variant="h6" sx={{ mb: 1 }}>
@@ -154,7 +245,7 @@ function GroupDetails() {
                                             variant="outlined"
                                             color="error"
                                             onClick={() => handleRemoveUser(user.id)}
-                                            disabled={loading || user.id === 1} // Prevent removing fixed user
+                                            disabled={loading || user.id === fixedUserId}
                                         >
                                             Remove
                                         </Button>
@@ -189,15 +280,11 @@ function GroupDetails() {
                             <Button
                                 variant="contained"
                                 onClick={handleAddUser}
-                                disabled={loading || (group && group.users.some((u) => u.id === 1))}
+                                disabled={loading || (group && group.users.some((u) => u.id === fixedUserId))}
                             >
                                 {loading ? 'Adding...' : 'Add Yourself to Group'}
                             </Button>
-                            <Button
-                                variant="contained"
-                                onClick={handleNewTransaction}
-                                disabled={loading}
-                            >
+                            <Button variant="contained" onClick={handleNewTransaction} disabled={loading}>
                                 New Transaction
                             </Button>
                         </Box>
@@ -216,6 +303,78 @@ function GroupDetails() {
                     </Alert>
                 )}
             </Box>
+
+            {/* Settle Debt Modal */}
+            <Dialog
+                open={openSettleModal}
+                onClose={handleCloseSettleModal}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Settle Debt</DialogTitle>
+                <DialogContent>
+                    <FormControl component="fieldset" sx={{ mb: 2 }}>
+                        <FormLabel component="legend">Settle Type</FormLabel>
+                        <RadioGroup value={settleType} onChange={handleSettleTypeChange}>
+                            <FormControlLabel value="Equally" control={<Radio />} label="Equally" />
+                            <FormControlLabel value="Percentage" control={<Radio />} label="Percentage" />
+                            <FormControlLabel value="Dynamic" control={<Radio />} label="Dynamic" />
+                        </RadioGroup>
+                    </FormControl>
+
+                    {settleType === 'Equally' && group && (
+                        <Typography>
+                            Each member will pay: €{(Math.abs(group.balance) / group.users.length).toFixed(2)}
+                        </Typography>
+                    )}
+
+                    {settleType === 'Percentage' && group && (
+                        <Box>
+                            {sortedUsers.map((user) => (
+                                <Box key={user.id} sx={{ mb: 2 }}>
+                                    <TextField
+                                        label={user.id === fixedUserId ? 'My Percentage' : `${user.name}'s Percentage`}
+                                        type="number"
+                                        value={percentages[user.id] || ''}
+                                        onChange={(e) => handlePercentageChange(user.id, e.target.value)}
+                                        fullWidth
+                                        inputProps={{ min: 0, max: 100 }}
+                                    />
+                                </Box>
+                            ))}
+                            <Typography>
+                                Total Percentage: {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {settleType === 'Dynamic' && group && (
+                        <Box>
+                            {sortedUsers.map((user) => (
+                                <Box key={user.id} sx={{ mb: 2 }}>
+                                    <TextField
+                                        label={user.id === fixedUserId ? 'My Amount (€)' : `${user.name}'s Amount (€)`}
+                                        type="number"
+                                        value={amounts[user.id] || ''}
+                                        onChange={(e) => handleAmountChange(user.id, e.target.value)}
+                                        fullWidth
+                                        inputProps={{ min: 0 }}
+                                    />
+                                </Box>
+                            ))}
+                            <Typography>
+                                Total Amount: €{Object.values(amounts).reduce((sum, a) => sum + a, 0).toFixed(2)}
+                            </Typography>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseSettleModal}>Cancel</Button>
+                    <Button onClick={handleSettleDebt} variant="contained" disabled={loading}>
+                        Submit
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 }
