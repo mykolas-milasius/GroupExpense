@@ -38,10 +38,11 @@ public class TransactionService : ITransactionService
         return transaction;
     }
 
-    public async Task<IEnumerable<Transaction>> GetTransactionsByGroupAsync(int groupId)
+    public async Task<IEnumerable<TransactionDto>> GetTransactionsByGroupAsync(int groupId)
     {
         return await _context.Transactions
             .Where(t => t.GroupMember!.GroupId == groupId)
+            .Select(t => new TransactionDto {Title = t.Title, Amount = t.Amount, GroupMemberName = t.GroupMember!.User!.Name})
             .AsNoTracking()
             .ToListAsync();
     }

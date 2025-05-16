@@ -204,7 +204,7 @@ function GroupDetails() {
                                 transactions.map((transaction) => (
                                     <ListItem key={transaction.id}>
                                         <ListItemText
-                                            primary={`${transaction.title}: €${transaction.amount.toFixed(2)} by ${transaction.groupMemberId || 'Unknown'}`}
+                                            primary={`${transaction.title}: €${transaction.amount.toFixed(2)} by ${transaction.groupMemberName || 'Unknown'}`}
                                         />
                                     </ListItem>
                                 ))

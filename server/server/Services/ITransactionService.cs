@@ -7,5 +7,5 @@ namespace server.Services;
 public interface ITransactionService
 {
     Task<Transaction> CreateTransactionAsync(TransactionDto transactionDto);
-    Task<IEnumerable<Transaction>> GetTransactionsByGroupAsync(int groupId);
+    Task<IEnumerable<TransactionDto>> GetTransactionsByGroupAsync(int groupId);
 }
